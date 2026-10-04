@@ -3,7 +3,7 @@ import path from "path";
 
 export interface KnowledgeItem {
   id: string;
-  category: "new_rule" | "exception" | "guardrail" | "additional_reasoning" | "decision_point";
+  category: "new_rule" | "exception" | "guardrail" | "additional_reasoning" | "decision_point" | "no_new_knowledge";
   categoryLabel: string;
   title: string;
   ruleOrReasoningText: string;

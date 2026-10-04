@@ -82,7 +82,7 @@ interface ClaudeAnalysis {
   expertResponseAnalysis?: ExpertResponseAnalysis | null;
 }
 
-export interface ScenarioEvent {
+interface ScenarioEvent {
   id: string;
   shortLabel: string;
   name: string;
@@ -91,7 +91,7 @@ export interface ScenarioEvent {
   context: string;
 }
 
-export const SCENARIO_EVENTS: ScenarioEvent[] = [
+const SCENARIO_EVENTS: ScenarioEvent[] = [
   {
     id: "event-open-dash",
     shortLabel: "1. Open Dash",
@@ -118,7 +118,7 @@ export const SCENARIO_EVENTS: ScenarioEvent[] = [
   },
 ];
 
-export interface TimelineStep {
+interface TimelineStep {
   id: string;
   timeSec: number;
   timeFormatted: string;
@@ -130,7 +130,7 @@ export interface TimelineStep {
   events: LiveTranscriptItem[];
 }
 
-export const TIMELINE_STEPS: TimelineStep[] = [
+const TIMELINE_STEPS: TimelineStep[] = [
   {
     id: "step-0",
     timeSec: 0,
@@ -230,7 +230,7 @@ export const TIMELINE_STEPS: TimelineStep[] = [
   },
 ];
 
-export type AiObserverStatus = "Observing" | "Decision detected" | "Why question ready";
+type AiObserverStatus = "Observing" | "Decision detected" | "Why question ready";
 
 export default function ObservePage() {
   const [isRecording, setIsRecording] = useState(true);
@@ -1583,7 +1583,7 @@ export default function ObservePage() {
                                 variant={
                                   liveAnalysis.expertResponseAnalysis.revealedCategory === "no_new_knowledge"
                                     ? "default"
-                                    : "emerald"
+                                    : "success"
                                 }
                                 dot
                               >

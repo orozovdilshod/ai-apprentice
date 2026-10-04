@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import { WorkMapSessionData } from "@/lib/session-store";
 import { TraineeEvaluationOutput } from "@/lib/anthropic";
 
-export interface DrillScenarioItem {
+interface DrillScenarioItem {
   id: string;
   drillNumber: number;
   title: string;
@@ -51,7 +51,7 @@ export interface DrillScenarioItem {
   sourceNodeId: string;
 }
 
-export interface TrainingTurn {
+interface TrainingTurn {
   scenarioNumber: number;
   scenarioTitle: string;
   scenario: string;
@@ -74,7 +74,7 @@ export interface TrainingTurn {
  *   "the I would inspect" -> "I would inspect"
  *   "transition events" -> "transaction events"
  */
-export function cleanDisplayedAnswer(text: string): string {
+function cleanDisplayedAnswer(text: string): string {
   if (!text) return "";
   let cleaned = text;
 
