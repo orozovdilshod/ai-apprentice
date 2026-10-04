@@ -8,16 +8,9 @@ import {
   Volume2,
   Sparkles,
   Bot,
-  User,
-  CheckCircle2,
-  Play,
   RotateCcw,
-  Sliders,
   Award,
   ChevronRight,
-  TrendingUp,
-  AlertCircle,
-  MessageSquare,
   ShieldCheck,
   Lightbulb,
   FileText,
@@ -25,16 +18,14 @@ import {
   GitFork,
   ArrowRight,
   RefreshCw,
-  SlidersHorizontal,
   Quote,
-  Eye,
-  CheckCircle,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/LoadingSkeleton";
+import { WaveformVisualizer } from "@/components/ui/WaveformVisualizer";
 import { WorkMapSessionData } from "@/lib/session-store";
 import { TraineeEvaluationOutput } from "@/lib/anthropic";
 
@@ -55,8 +46,8 @@ interface TrainingTurn {
   scenarioNumber: number;
   scenarioTitle: string;
   scenario: string;
-  traineeAnswer: string; // cleaned displayed answer
-  rawTranscript?: string; // original raw audio transcript preserved intact
+  traineeAnswer: string;
+  rawTranscript?: string;
   evaluation: TraineeEvaluationOutput;
   timestamp: string;
   knowledgeUsed: {
@@ -70,9 +61,6 @@ interface TrainingTurn {
 /**
  * Fixes obvious speech-to-text slips in the trainee's answer before showing it
  * in the final summary and session log, without modifying the raw transcript.
- * Example:
- *   "the I would inspect" -> "I would inspect"
- *   "transition events" -> "transaction events"
  */
 function cleanDisplayedAnswer(text: string): string {
   if (!text) return "";
@@ -139,8 +127,6 @@ function generateDynamicScenarios(session: WorkMapSessionData | null): DrillScen
   };
 
   // 2. Drill 2: 3% Variance Scenario (Grounded strictly in Sarah's captured rule)
-  // Authoritative captured rule: "When variance exceeds 10%, inspect raw transaction events before raising any alert."
-  // For 3% variance, the condition (>10%) is not met, so raw verification is not triggered.
   const drill2: DrillScenarioItem = {
     id: "drill-2-low-variance-threshold",
     drillNumber: 2,
@@ -155,7 +141,6 @@ function generateDynamicScenarios(session: WorkMapSessionData | null): DrillScen
   };
 
   // 3. Drill 3: Escalation Pressure Guardrail (Grounded in dt-large-variance-ledger)
-  // Authoritative captured rule: 14% variance exceeds 10% threshold, so raw events MUST be inspected before raising any alert.
   const drill3: DrillScenarioItem = {
     id: "drill-3-escalation-guardrail",
     drillNumber: 3,
@@ -175,13 +160,14 @@ function generateDynamicScenarios(session: WorkMapSessionData | null): DrillScen
 export default function TrainPage() {
   // Session data from Work Map
   const [sessionData, setSessionData] = useState<WorkMapSessionData | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [, setIsLoadingSession] = useState(true);
 
   // Active drill progression: 1, 2, 3 (drills) or 4 (completed)
   const [currentDrillNumber, setCurrentDrillNumber] = useState<1 | 2 | 3 | 4>(1);
 
   // Trainee Input states
   const [traineeAnswer, setTraineeAnswer] = useState("");
+  const [showTextInput, setShowTextInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -496,669 +482,735 @@ export default function TrainPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
-      {/* 1. Top Header & Control Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0B0F17]/95 border border-white/10 shadow-xl backdrop-blur-md">
+    <div className="space-y-6 pb-16 bg-grid-pattern -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-screen text-[#EEEFF2] relative">
+      {/* ═══════════════════════════════════════════════════════════════
+          1. TRAIN HEADER
+          ═══════════════════════════════════════════════════════════════ */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.08] animate-fade-in-up">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              New Hire Voice Training Simulator
-            </h1>
-            <Badge variant="cyan" dot className="text-[11px] font-mono">
-              ElevenLabs Voice Tutor
-            </Badge>
-            <Badge variant="brand" className="text-[11px] font-mono">
-              Claude 3.5 Evaluated
-            </Badge>
+          <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-[#646977]">
+            REVENUE ANOMALY · MODULE 1
           </div>
-          <p className="text-xs text-slate-400">
-            Interactive voice drills generated <strong>strictly</strong> from captured expert knowledge:{" "}
-            <span className="text-slate-200 font-medium">Sarah Chen (Senior Data Analyst)</span>.
+          <h1 className="text-xl sm:text-2xl font-semibold text-[#EEEFF2] tracking-tight">
+            New Hire Voice Training
+          </h1>
+          <p className="text-xs text-[#9297A5]">
+            Learner · New Hire <span className="text-[#646977]">•</span> Interactive drills compiled from{" "}
+            <strong>{sessionData?.expert || "Sarah Chen"}</strong>&apos;s observation session
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right side: 3-segment progress indicator & reset */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 p-2.5 px-3.5 rounded-xl bg-[#181A1F] border border-white/[0.08]">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-3 text-[10px] font-mono">
+                <span className="text-[#646977] uppercase tracking-wider">Progress</span>
+                <span className="text-[#EEEFF2] font-semibold">
+                  {currentDrillNumber <= 3 ? `${currentDrillNumber} / 3` : "3 / 3"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3].map((num) => {
+                  const isCompleted = trainingHistory.some((t) => t.scenarioNumber === num);
+                  const isActive = currentDrillNumber === num;
+                  return (
+                    <div
+                      key={num}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        isCompleted
+                          ? "w-8 bg-[#34D399]"
+                          : isActive
+                          ? "w-8 bg-[#38BDF8] shadow-[0_0_8px_rgba(56,189,248,0.5)]"
+                          : "w-6 bg-[#1F2127] border border-white/[0.08]"
+                      }`}
+                      title={`Drill ${num}: ${isCompleted ? "Completed" : isActive ? "Active" : "Upcoming"}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={handleResetTraining}
-            title="Reset training drill"
-            className="p-2 rounded-lg bg-black/40 border border-white/10 hover:border-white/20 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Reset training session"
+            className="p-2.5 rounded-xl bg-[#181A1F] border border-white/[0.08] hover:bg-[#292B34] text-[#9297A5] hover:text-[#EEEFF2] transition-colors cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
-          <Link href="/work-map">
-            <Button variant="secondary" size="sm">
-              <GitFork className="w-3.5 h-3.5" />
-              <span>View Decision X-Ray</span>
-            </Button>
-          </Link>
-          <Link href="/observe">
-            <Button variant="secondary" size="sm" className="hidden sm:inline-flex">
-              <Workflow className="w-3.5 h-3.5" />
-              <span>Observation Mode</span>
-            </Button>
-          </Link>
         </div>
-      </div>
+      </header>
 
-      {/* 2. Top Progress & Status Bar (Requirements 7 & 8) */}
-      <div className="p-4 rounded-xl bg-[#0D1321]/90 border border-white/10 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Progress:
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/40 text-xs font-mono font-bold">
-              {currentDrillNumber <= 3
-                ? `Drill ${currentDrillNumber} of 3`
-                : "All Drills Completed (3 of 3)"}
-            </span>
-          </div>
+      {/* ═══════════════════════════════════════════════════════════════
+          2. MAIN PRACTICE STUDIO (DESKTOP: 2-COLUMNS, MOBILE: ORDERED)
+          ═══════════════════════════════════════════════════════════════ */}
+      {currentDrillNumber <= 3 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in-up">
+          {/* ────────────────────────────────────────────────────────
+              LEFT COLUMN — SCENARIO & INPUT STUDIO (~1.3fr / 7 cols)
+              ──────────────────────────────────────────────────────── */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Scenario Card */}
+            <div className="p-6 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-xl space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase tracking-wider bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30">
+                    SCENARIO {currentDrillNumber}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#9297A5]">
+                    Voice drill
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-[#646977]">
+                  Target: {activeScenario.sourceNodeId}
+                </span>
+              </div>
 
-          {/* Stepper indicators */}
-          <div className="flex items-center gap-1.5 font-mono text-xs">
-            {dynamicScenarios.map((sc, i) => {
-              const drillNum = i + 1;
-              const isCompleted = trainingHistory.some((t) => t.scenarioNumber === drillNum);
-              const isActive = currentDrillNumber === drillNum;
+              {/* Strongest Visual Element: Real Training Question */}
+              <div className="space-y-2">
+                <h2 className="text-lg sm:text-xl font-medium text-[#EEEFF2] leading-snug">
+                  &ldquo;{activeScenario.question}&rdquo;
+                </h2>
+                <p className="text-xs text-[#9297A5] leading-relaxed">
+                  {activeScenario.context}
+                </p>
+              </div>
 
-              return (
-                <React.Fragment key={sc.id}>
-                  {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-600" />}
-                  <span
-                    className={`px-2 py-0.5 rounded text-[11px] flex items-center gap-1 ${
-                      isActive
-                        ? "bg-brand-500/25 text-brand-300 border border-brand-500/60 font-bold ring-1 ring-brand-500/30"
-                        : isCompleted
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : "bg-slate-800 text-slate-400"
+              {/* ────────────────────────────────────────────────────
+                  MICROPHONE INTERACTION STUDIO
+                  ──────────────────────────────────────────────────── */}
+              <div className="pt-4 border-t border-white/[0.08] flex flex-col items-center justify-center space-y-4">
+                {/* Centered ~112px Microphone Orb */}
+                <div className="relative flex items-center justify-center">
+                  {/* Subtle animated recording ring */}
+                  {micStatus === "recording" && (
+                    <>
+                      <div className="absolute -inset-3 rounded-full border border-[#EF4444]/60 animate-ping pointer-events-none" />
+                      <div className="absolute -inset-1.5 rounded-full border border-[#EF4444]/40 animate-pulse pointer-events-none" />
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={micStatus === "recording" ? stopRecording : startRecording}
+                    disabled={micStatus === "transcribing" || isSubmitting}
+                    aria-label={micStatus === "recording" ? "Stop recording" : "Record answer"}
+                    className={`w-28 h-28 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#38BDF8] ${
+                      micStatus === "recording"
+                        ? "bg-[#EF4444]/20 border-2 border-[#EF4444] text-[#EF4444] shadow-[0_0_35px_rgba(239,68,68,0.4)] scale-105"
+                        : micStatus === "transcribing"
+                        ? "bg-[#38BDF8]/15 border-2 border-[#38BDF8]/60 text-[#38BDF8] animate-pulse"
+                        : micStatus === "complete"
+                        ? "bg-[#34D399]/15 border-2 border-[#34D399]/60 text-[#34D399]"
+                        : "bg-[#1F2127] border-2 border-white/[0.08] text-[#EEEFF2] hover:border-[#38BDF8]/40 hover:bg-[#292B34] hover:shadow-[0_0_20px_rgba(56,189,248,0.2)]"
                     }`}
                   >
-                    {isCompleted && <CheckCircle className="w-3 h-3 text-emerald-400" />}
-                    <span>Drill {drillNum}</span>
-                  </span>
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400">Average Score:</span>
-            <span className="text-base font-bold text-emerald-400 font-mono">
-              {trainingHistory.length > 0 ? `${cumulativeScore} / 100` : "--"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Voice Tutor: {voiceStatus === "playing" ? "Speaking..." : "Ready"}</span>
-          </div>
-        </div>
-      </div>
-
-      {currentDrillNumber <= 3 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (7 cols): Active Scenario & Trainee Input */}
-          <div className="lg:col-span-7 space-y-4">
-            {/* Active Scenario Card */}
-            <Card className="border-white/10 bg-[#0A0E17]/90 shadow-xl">
-              <CardHeader className="pb-3 border-b border-white/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 text-[10px] font-mono font-bold tracking-wider uppercase border border-brand-500/30">
-                      Drill {currentDrillNumber} of 3 • Active
-                    </span>
-                    <span className="text-xs font-semibold text-slate-300">
-                      {activeScenario.title}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    Grounded in Work Map
-                  </span>
-                </div>
-                <CardTitle className="text-lg text-white mt-2 leading-snug">
-                  &ldquo;{activeScenario.question}&rdquo;
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-300 mt-1">
-                  {activeScenario.context}
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4 pt-4">
-                {/* Trainee Answer Input */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Mic className="w-3.5 h-3.5 text-cyan-400" />
-                      Your Spoken or Written Answer
-                    </label>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Microphone (scribe_v2) or Text Fallback
-                    </span>
-                  </div>
-
-                  {/* Microphone Controls */}
-                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {micStatus === "recording" ? (
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={stopRecording}
-                          className="animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.4)]"
-                        >
-                          <MicOff className="w-3.5 h-3.5 mr-1" />
-                          <span>Stop &amp; Transcribe</span>
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="glow"
-                          size="sm"
-                          onClick={startRecording}
-                          disabled={micStatus === "transcribing" || isSubmitting}
-                        >
-                          <Mic className="w-3.5 h-3.5 mr-1" />
-                          <span>🎙 Record Answer</span>
-                        </Button>
-                      )}
-
-                      {micStatus === "recording" && (
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-rose-400">
-                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                          <span>Recording: {formatTimer(recordingSeconds)}</span>
-                        </span>
-                      )}
-
-                      {micStatus === "transcribing" && (
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-cyan-300 animate-pulse">
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Transcribing with ElevenLabs scribe_v2...</span>
-                        </span>
-                      )}
-
-                      {micStatus === "complete" && (
-                        <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Transcribed</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="text-[11px] text-slate-400">
-                      Speak clearly into your microphone
-                    </div>
-                  </div>
-
-                  {micError && (
-                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                      {micError}
-                    </div>
-                  )}
-
-                  {/* Text Fallback Textarea */}
-                  <textarea
-                    rows={4}
-                    value={traineeAnswer}
-                    onChange={(e) => setTraineeAnswer(e.target.value)}
-                    placeholder={`Provide your answer for Drill ${currentDrillNumber}... Speak or type here.`}
-                    className="w-full p-3.5 rounded-xl bg-black/50 border border-white/10 text-white text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 placeholder:text-slate-500"
-                  />
-
-                  {/* Quick Test Demo Fills tailored to current drill */}
-                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className="text-slate-500 font-mono">Quick test fills:</span>
-                    {currentDrillNumber === 1 && (
+                    {micStatus === "recording" ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "I would verify raw transaction events first before raising any alert or investigating business causes, because the variance exceeds 10%."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors cursor-pointer"
-                        >
-                          + Correct: Verify Raw Ledger First
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "I would immediately call the sales team and churn meetings to find out why customers canceled."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                        >
-                          + Incorrect: Jump to Churn Panic
-                        </button>
+                        <MicOff className="w-8 h-8 text-[#EF4444] mb-1" />
+                        <span className="text-[10px] font-mono font-bold text-[#EF4444]">
+                          {formatTimer(recordingSeconds)}
+                        </span>
+                      </>
+                    ) : micStatus === "transcribing" ? (
+                      <>
+                        <RefreshCw className="w-8 h-8 text-[#38BDF8] animate-spin mb-1" />
+                        <span className="text-[9.5px] font-mono font-semibold">STT...</span>
+                      </>
+                    ) : micStatus === "complete" ? (
+                      <>
+                        <CheckCircle2 className="w-8 h-8 text-[#34D399] mb-1" />
+                        <span className="text-[9.5px] font-mono font-semibold text-[#34D399]">Done</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-8 h-8 text-[#38BDF8] mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[9.5px] font-mono uppercase tracking-wider text-[#9297A5]">
+                          Record
+                        </span>
                       </>
                     )}
-
-                    {currentDrillNumber === 2 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "No, I would not query raw transaction events. Sarah's captured rule is only triggered when variance exceeds 10%, so a 3% variance does not meet that condition."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors cursor-pointer"
-                        >
-                          + Correct: 3% does not meet 10% condition
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "Yes, I would always query raw transaction events for any variance, even if it is only 3%."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                        >
-                          + Incorrect: Always query raw data
-                        </button>
-                      </>
-                    )}
-
-                    {currentDrillNumber === 3 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "Even though my manager asked for an immediate report, a 14% drop exceeds the 10% threshold. Sarah's captured rule and guardrail strictly require inspecting raw transaction events first before raising any alert."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors cursor-pointer"
-                        >
-                          + Correct: Inspect raw records before alerting
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTraineeAnswer(
-                              "I would immediately report the anomaly and file an incident report to leadership as requested by the manager."
-                            )
-                          }
-                          className="px-2 py-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                        >
-                          + Incorrect: Immediately alert without raw check
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {submitError && (
-                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                      {submitError}
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Evaluating against: {activeScenario.sourceNodeId}
-                    </span>
-                    <Button
-                      variant="glow"
-                      size="sm"
-                      onClick={handleSubmitAnswer}
-                      disabled={!traineeAnswer.trim() || isSubmitting}
-                      className="cursor-pointer"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                          <span>Evaluating with Claude...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5 text-accent-cyan mr-1.5" />
-                          <span>Submit Answer (Drill {currentDrillNumber})</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Knowledge Used Card */}
-            <Card className="border-white/10 bg-[#0E1522]/70">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 font-mono">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Knowledge Used for Evaluation (Grounded in Work Map)
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Zero Hallucination Criterion
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2.5 pt-1 text-xs text-slate-300">
-                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-semibold text-brand-300 uppercase block font-mono">
-                    Target Rule:
-                  </span>
-                  <p className="text-slate-100">{activeScenario.rule}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-semibold text-emerald-300 uppercase block font-mono">
-                    Safety Guardrail:
-                  </span>
-                  <p className="text-slate-200">{activeScenario.guardrail}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 space-y-1">
-                  <span className="text-[10px] font-semibold text-emerald-400 uppercase block font-mono">
-                    Verbatim Grounding Evidence:
-                  </span>
-                  <p className="italic text-slate-200">&ldquo;{activeScenario.evidence}&rdquo;</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column (5 cols): AI Evaluation & Spoken Voice Tutor Feedback */}
-          <div className="lg:col-span-5 space-y-4">
-            {latestEvaluation ? (
-              <Card className="border-white/10 bg-[#0E1522]/95 sticky top-6 shadow-2xl">
-                <CardHeader className="pb-3 border-b border-white/5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400 font-mono flex items-center gap-1.5">
-                      <Bot className="w-3.5 h-3.5 text-cyan-400" />
-                      Latest Evaluation (Drill {currentDrillNumber - 1})
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded text-[10px] font-bold font-mono border ${
-                        latestEvaluation.classification === "correct"
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                          : latestEvaluation.classification === "partially_correct"
-                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                          : latestEvaluation.classification === "incorrect"
-                          ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
-                          : "bg-slate-800 text-slate-400 border-slate-700"
-                      }`}
-                    >
-                      {latestEvaluation.classification.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-baseline justify-between">
-                    <CardTitle className="text-base text-white">
-                      Score: {latestEvaluation.score} / 100
-                    </CardTitle>
-                    <span className="text-xs text-slate-400 font-mono">
-                      Grounded in Sarah Chen Rule
-                    </span>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4 pt-3.5 text-xs">
-                  {/* Spoken Voice Tutor Feedback */}
-                  <div className="p-4 rounded-xl border border-cyan-500/40 bg-cyan-950/20 shadow-[0_0_20px_rgba(6,182,212,0.1)] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                        <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
-                        Voice Tutor Spoken Feedback
+                {/* State Text & Waveform */}
+                <div className="w-full flex flex-col items-center space-y-2">
+                  <span className="text-xs font-mono font-semibold tracking-wide">
+                    {micStatus === "recording" && (
+                      <span className="text-[#EF4444] flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
+                        Listening... ({formatTimer(recordingSeconds)})
                       </span>
+                    )}
+                    {micStatus === "transcribing" && (
+                      <span className="text-[#38BDF8] flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Transcribing with ElevenLabs scribe_v2...
+                      </span>
+                    )}
+                    {micStatus === "complete" && (
+                      <span className="text-[#34D399] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Transcription Complete • Ready to Analyze
+                      </span>
+                    )}
+                    {micStatus === "idle" && (
+                      <span className="text-[#9297A5]">
+                        Click microphone to answer with voice
+                      </span>
+                    )}
+                    {micStatus === "error" && (
+                      <span className="text-[#EF4444] flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Recording Error • Click to Retry
+                      </span>
+                    )}
+                  </span>
+
+                  {/* Waveform Visualizer */}
+                  <div className="w-full max-w-xs">
+                    <WaveformVisualizer
+                      isActive={micStatus === "recording"}
+                      color={micStatus === "recording" ? "cyan" : "brand"}
+                      barCount={28}
+                      className="h-10 bg-[#131417] border-white/[0.06]"
+                    />
+                  </div>
+                </div>
+
+                {micError && (
+                  <div className="w-full p-2.5 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] text-xs text-center">
+                    {micError}
+                  </div>
+                )}
+              </div>
+
+              {/* ────────────────────────────────────────────────────
+                  EXPERT RESPONSE (TRAINEE ANSWER) & SUBMISSION
+                  ──────────────────────────────────────────────────── */}
+              <div className="pt-4 border-t border-white/[0.08] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-[#646977] font-semibold">
+                    YOUR ANSWER / EXPERT RESPONSE
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTextInput((prev) => !prev)}
+                    className="text-[11px] font-mono text-[#38BDF8] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Answer with Text</span>
+                    {showTextInput ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                {/* Text Fallback Textarea */}
+                {showTextInput && (
+                  <div className="space-y-2 animate-fade-in-up">
+                    <textarea
+                      rows={3}
+                      value={traineeAnswer}
+                      onChange={(e) => setTraineeAnswer(e.target.value)}
+                      placeholder={`Type your spoken response for Drill ${currentDrillNumber}...`}
+                      className="w-full p-3.5 rounded-xl bg-[#131417] border border-white/[0.08] text-[#EEEFF2] text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#38BDF8] focus:border-[#38BDF8] placeholder:text-[#646977]"
+                    />
+                  </div>
+                )}
+
+                {/* Displayed Trainee Transcription / Answer */}
+                {traineeAnswer && !showTextInput && (
+                  <div className="p-3.5 rounded-xl bg-[#131417] border border-white/[0.08] space-y-1.5 animate-fade-in-up">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-[#646977]">
+                      <span>Captured Response</span>
                       <button
-                        type="button"
-                        onClick={() => speakVoiceTutorFeedback(latestEvaluation.feedback)}
-                        disabled={voiceStatus === "generating" || voiceStatus === "playing"}
-                        className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                        onClick={() => setTraineeAnswer("")}
+                        className="text-[#EF4444] hover:underline cursor-pointer"
                       >
-                        <Volume2 className={`w-3 h-3 ${voiceStatus === "playing" ? "animate-pulse" : ""}`} />
-                        <span>{voiceStatus === "playing" ? "Speaking..." : "Replay"}</span>
+                        Clear
                       </button>
                     </div>
-
-                    <p className="text-sm font-medium text-white leading-relaxed">
-                      &ldquo;{latestEvaluation.feedback}&rdquo;
-                    </p>
-
-                    <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>Synthesized via ElevenLabs Text-to-Speech</span>
-                      <span className="text-cyan-400">Sarah Chen Voice Profile</span>
-                    </div>
-                  </div>
-
-                  {/* Missing Knowledge */}
-                  <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">
-                      Missing Knowledge / Gap:
-                    </span>
-                    <p className="text-slate-200 leading-relaxed font-medium">
-                      {latestEvaluation.missing_knowledge}
+                    <p className="text-xs text-[#EEEFF2] font-medium leading-relaxed italic">
+                      &ldquo;{traineeAnswer}&rdquo;
                     </p>
                   </div>
+                )}
 
-                  {/* Grounded Evidence Cited */}
-                  <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1">
-                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider block font-mono">
-                      Grounded Expert Evidence:
-                    </span>
-                    <p className="text-slate-200 italic leading-relaxed">
-                      &ldquo;{latestEvaluation.evidence}&rdquo;
-                    </p>
-                  </div>
+                {/* Quick Test Demo Fills */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10.5px]">
+                  <span className="text-[#646977] font-mono text-[10px]">Test fills:</span>
+                  {currentDrillNumber === 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "I would verify raw transaction events first before raising any alert or investigating business causes, because the variance exceeds 10%."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#34D399]/10 text-[#34D399] border border-[#34D399]/30 hover:bg-[#34D399]/20 transition-colors cursor-pointer"
+                      >
+                        + Correct: Raw Ledger Check
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "I would immediately call the sales team and churn meetings to find out why customers canceled."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/30 hover:bg-[#EF4444]/20 transition-colors cursor-pointer"
+                      >
+                        + Incorrect: Churn Panic
+                      </button>
+                    </>
+                  )}
 
-                  {/* Advance Notification Card */}
-                  <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-center gap-2 text-brand-300">
-                    <ArrowRight className="w-4 h-4 text-brand-400 shrink-0" />
-                    <span>
-                      Advancing to <strong>Drill {currentDrillNumber} of 3</strong>: &ldquo;
-                      {activeScenario.title}&rdquo;. Submit your answer on the left.
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-white/10 bg-[#0E1522]/80 sticky top-6 text-center py-12 px-6">
-                <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400 mb-3">
-                  <Bot className="w-6 h-6" />
+                  {currentDrillNumber === 2 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "No, I would not query raw transaction events. Sarah's captured rule is only triggered when variance exceeds 10%, so a 3% variance does not meet that condition."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#34D399]/10 text-[#34D399] border border-[#34D399]/30 hover:bg-[#34D399]/20 transition-colors cursor-pointer"
+                      >
+                        + Correct: 3% Does Not Meet 10%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "Yes, I would always query raw transaction events for any variance, even if it is only 3%."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/30 hover:bg-[#EF4444]/20 transition-colors cursor-pointer"
+                      >
+                        + Incorrect: Always Query
+                      </button>
+                    </>
+                  )}
+
+                  {currentDrillNumber === 3 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "Even though my manager asked for an immediate report, a 14% drop exceeds the 10% threshold. Sarah's captured rule and guardrail strictly require inspecting raw transaction events first before raising any alert."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#34D399]/10 text-[#34D399] border border-[#34D399]/30 hover:bg-[#34D399]/20 transition-colors cursor-pointer"
+                      >
+                        + Correct: Guardrail Adherence
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTraineeAnswer(
+                            "I would immediately report the anomaly and file an incident report to leadership as requested by the manager."
+                          )
+                        }
+                        className="px-2 py-0.5 rounded bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/30 hover:bg-[#EF4444]/20 transition-colors cursor-pointer"
+                      >
+                        + Incorrect: Alert Prematurely
+                      </button>
+                    </>
+                  )}
                 </div>
-                <h3 className="text-sm font-semibold text-white">Voice Tutor Awaiting Answer</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  Record your answer using the microphone or submit via text. Claude and ElevenLabs will evaluate your adherence to the expert rule.
+
+                {submitError && (
+                  <div className="p-3 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] text-xs">
+                    {submitError}
+                  </div>
+                )}
+
+                {/* Primary Ivory Submit Button */}
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-mono text-[#646977]">
+                    Claude 3.5 Sonnet Grounded Evaluator
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleSubmitAnswer}
+                    disabled={!traineeAnswer.trim() || isSubmitting}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F5EFE6] text-[#16171B] hover:bg-white text-xs font-semibold shadow-md transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Evaluating with Claude...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-[#16171B]" />
+                        <span>Analyze / Submit Answer</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ────────────────────────────────────────────────────────
+              RIGHT COLUMN — EVALUATION, EVIDENCE & VOICE TUTOR (~1fr / 5 cols)
+              ──────────────────────────────────────────────────────── */}
+          <div className="lg:col-span-5 space-y-5">
+            {/* 1. AI EVALUATION CARD */}
+            {latestEvaluation ? (
+              <div className="p-5 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-2xl space-y-4 animate-fade-in-up">
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-[#38BDF8]" />
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#38BDF8]">
+                      AI Evaluation
+                    </span>
+                  </div>
+
+                  {/* Classification Badge */}
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                      latestEvaluation.classification === "correct"
+                        ? "bg-[#34D399]/15 text-[#34D399] border-[#34D399]/30"
+                        : latestEvaluation.classification === "partially_correct"
+                        ? "bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30"
+                        : latestEvaluation.classification === "incorrect"
+                        ? "bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30"
+                        : "bg-[#1F2127] text-[#9297A5] border-white/[0.08]"
+                    }`}
+                  >
+                    {latestEvaluation.classification.replace("_", " ")}
+                  </span>
+                </div>
+
+                {/* Score & Status */}
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <span className="text-3xl sm:text-4xl font-mono font-bold text-[#EEEFF2]">
+                      {latestEvaluation.score}
+                    </span>
+                    <span className="text-sm font-mono text-[#646977] ml-1">/ 100</span>
+                  </div>
+                  <span className="text-[10.5px] font-mono text-[#646977]">
+                    Grounded in captured expert knowledge
+                  </span>
+                </div>
+
+                {/* Feedback */}
+                <div className="p-3.5 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#9297A5] block">
+                    Feedback
+                  </span>
+                  <p className="text-xs text-[#EEEFF2] leading-relaxed">
+                    {latestEvaluation.feedback}
+                  </p>
+                </div>
+
+                {/* Missing Knowledge if applicable */}
+                {latestEvaluation.missing_knowledge &&
+                  !latestEvaluation.missing_knowledge.toLowerCase().includes("none") && (
+                    <div className="p-3 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 space-y-1 text-xs">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#F59E0B] block font-semibold">
+                        Knowledge Gap
+                      </span>
+                      <p className="text-[#EEEFF2] leading-relaxed">
+                        {latestEvaluation.missing_knowledge}
+                      </p>
+                    </div>
+                  )}
+
+                {/* Advance notification banner */}
+                <div className="p-3 rounded-xl bg-[#38BDF8]/10 border border-[#38BDF8]/20 flex items-center gap-2 text-xs text-[#38BDF8]">
+                  <ArrowRight className="w-4 h-4 shrink-0" />
+                  <span>
+                    Advancing to <strong>Drill {currentDrillNumber} of 3</strong>: &ldquo;{activeScenario.title}&rdquo;
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Idle state dashed panel */
+              <div className="p-8 rounded-2xl border border-dashed border-white/[0.12] bg-[#181A1F]/50 text-center space-y-2">
+                <Bot className="w-7 h-7 text-[#646977] mx-auto" />
+                <h3 className="text-xs font-semibold text-[#EEEFF2]">
+                  Evaluation Awaiting Response
+                </h3>
+                <p className="text-xs text-[#9297A5] max-w-xs mx-auto">
+                  Your evaluation will appear here after you answer.
                 </p>
-              </Card>
+              </div>
             )}
+
+            {/* 2. VOICE TUTOR CARD */}
+            <div className="p-5 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-[#38BDF8]" />
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#38BDF8]">
+                    Voice Tutor
+                  </span>
+                </div>
+
+                {latestEvaluation && (
+                  <button
+                    type="button"
+                    onClick={() => speakVoiceTutorFeedback(latestEvaluation.feedback)}
+                    disabled={voiceStatus === "generating" || voiceStatus === "playing"}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#38BDF8]/15 border border-[#38BDF8]/30 text-[#38BDF8] hover:bg-[#38BDF8]/25 text-xs font-mono font-semibold cursor-pointer transition-colors"
+                  >
+                    <Volume2 className={voiceStatus === "playing" ? "w-3 h-3 animate-pulse" : "w-3 h-3"} />
+                    <span>{voiceStatus === "playing" ? "Speaking..." : "Replay"}</span>
+                  </button>
+                )}
+              </div>
+
+              <p className="text-xs text-[#9297A5] leading-relaxed italic">
+                {latestEvaluation
+                  ? `"${latestEvaluation.feedback}"`
+                  : "Voice Tutor will provide spoken feedback using Sarah Chen's voice model once an answer is submitted."}
+              </p>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-[#646977]">
+                <span>ElevenLabs TTS Profile</span>
+                <span className="text-[#38BDF8]">Sarah Chen</span>
+              </div>
+            </div>
+
+            {/* 3. EXPERT EVIDENCE CARD (Lilac Accent #C084FC) */}
+            <div className="p-5 rounded-2xl border border-[#C084FC]/30 bg-gradient-to-br from-[#C084FC]/10 via-[#181A1F] to-[#1F2127] shadow-[0_0_25px_rgba(192,132,252,0.1)] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Quote className="w-3.5 h-3.5 text-[#C084FC]" />
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C084FC]">
+                    EXPERT EVIDENCE
+                  </span>
+                </div>
+                <span className="px-1.5 py-0.2 rounded bg-[#34D399]/15 text-[#34D399] text-[9px] font-mono font-bold border border-[#34D399]/30">
+                  EXPLICIT
+                </span>
+              </div>
+
+              <blockquote className="text-xs sm:text-sm font-medium text-[#EEEFF2] italic tracking-wide leading-relaxed pl-3 border-l-2 border-[#C084FC]">
+                &quot;{activeScenario.evidence}&quot;
+              </blockquote>
+
+              <div className="pt-2 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-1 text-[10px] font-mono text-[#9297A5]">
+                <span>Speaker: <strong>Sarah Chen</strong></span>
+                <span className="text-[#C084FC]">05:18 · Grounded Observation</span>
+              </div>
+            </div>
+
+            {/* 4. KNOWLEDGE USED CARD */}
+            <div className="p-5 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-xl space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#34D399]" />
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#34D399]">
+                    KNOWLEDGE USED
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-[#646977]">
+                  Work Map Heuristics
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.06] space-y-1">
+                  <span className="text-[10px] font-mono font-semibold uppercase text-[#38BDF8] flex items-center gap-1">
+                    <Lightbulb className="w-3 h-3 text-[#38BDF8]" />
+                    Target Rule:
+                  </span>
+                  <p className="text-[#EEEFF2] leading-relaxed">
+                    {activeScenario.rule}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.06] space-y-1">
+                  <span className="text-[10px] font-mono font-semibold uppercase text-[#34D399] flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-[#34D399]" />
+                    Safety Guardrail:
+                  </span>
+                  <p className="text-[#9297A5] leading-relaxed">
+                    {activeScenario.guardrail}
+                  </p>
+                </div>
+
+                {activeScenario.exception && activeScenario.exception !== "Not stated by expert" && (
+                  <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.06] space-y-1">
+                    <span className="text-[10px] font-mono font-semibold uppercase text-[#F59E0B] flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-[#F59E0B]" />
+                      Exception:
+                    </span>
+                    <p className="text-[#9297A5] leading-relaxed">
+                      {activeScenario.exception}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : (
-        /* Completed Scorecard View */
-        <Card className="border-emerald-500/30 bg-[#0A0E17]/95 shadow-2xl p-6 text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+        /* ═════════════════════════════════════════════════════════════
+           COMPLETED SCORECARD VIEW (ALL 3 DRILLS FINISHED)
+           ═════════════════════════════════════════════════════════════ */
+        <div className="p-8 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-2xl text-center space-y-6 max-w-3xl mx-auto animate-fade-in-up">
+          <div className="w-16 h-16 rounded-full bg-[#34D399]/15 border border-[#34D399]/30 flex items-center justify-center mx-auto text-[#34D399]">
             <Award className="w-8 h-8" />
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-xl font-bold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#EEEFF2] tracking-tight">
               All 3 Training Scenarios Completed!
             </h2>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
+            <p className="text-xs text-[#9297A5] max-w-md mx-auto">
               You have completed the entire new hire voice training curriculum compiled directly from Sarah Chen&apos;s observation session.
             </p>
           </div>
 
-          <div className="max-w-md mx-auto p-4 rounded-xl bg-black/40 border border-white/10 flex items-center justify-around font-mono">
+          {/* Metric Pills */}
+          <div className="grid grid-cols-3 gap-3 p-4 rounded-xl bg-[#131417] border border-white/[0.08] font-mono">
             <div>
-              <span className="text-[10px] text-slate-400 uppercase block">Total Drills</span>
-              <span className="text-xl font-bold text-white">3 / 3</span>
+              <span className="text-[10px] text-[#646977] uppercase block">Total Drills</span>
+              <span className="text-xl font-bold text-[#EEEFF2]">3 / 3</span>
             </div>
-            <div className="w-px h-8 bg-white/10" />
             <div>
-              <span className="text-[10px] text-slate-400 uppercase block">Average Score</span>
-              <span className="text-xl font-bold text-emerald-400">{cumulativeScore} / 100</span>
+              <span className="text-[10px] text-[#646977] uppercase block">Average Score</span>
+              <span className="text-xl font-bold text-[#34D399]">{cumulativeScore} / 100</span>
             </div>
-            <div className="w-px h-8 bg-white/10" />
             <div>
-              <span className="text-[10px] text-slate-400 uppercase block">Heuristics Mastered</span>
-              <span className="text-xl font-bold text-cyan-400">3 Rules</span>
+              <span className="text-[10px] text-[#646977] uppercase block">Heuristics Mastered</span>
+              <span className="text-xl font-bold text-[#38BDF8]">3 Rules</span>
             </div>
           </div>
 
-          {/* Drill Breakdown Log */}
-          <div className="max-w-2xl mx-auto text-left space-y-3">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block font-mono">
-              Drill Evaluation Summary:
-            </span>
-
-            {trainingHistory.map((turn, i) => (
-              <div
-                key={i}
-                className="p-3.5 rounded-xl border border-white/10 bg-[#0E1522]/90 space-y-2 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">
-                    Drill {turn.scenarioNumber}: {turn.scenarioTitle}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      turn.evaluation.classification === "correct"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                    }`}
-                  >
-                    {turn.evaluation.score}% • {turn.evaluation.classification}
-                  </span>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-slate-300 italic">
-                    &ldquo;{turn.traineeAnswer}&rdquo;
-                  </p>
-                  {turn.rawTranscript && turn.rawTranscript !== turn.traineeAnswer && (
-                    <p className="text-[10px] text-slate-500 font-mono">
-                      Raw transcript: &ldquo;{turn.rawTranscript}&rdquo;
-                    </p>
-                  )}
-                </div>
-                <div className="pt-1.5 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Feedback: {turn.evaluation.feedback}</span>
-                  <button
-                    onClick={() => speakVoiceTutorFeedback(turn.evaluation.feedback)}
-                    className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono text-[10px] cursor-pointer"
-                  >
-                    <Volume2 className="w-3 h-3" />
-                    <span>Play Audio</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Button variant="secondary" onClick={handleResetTraining}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+          {/* Actions */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={handleResetTraining}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1F2127] border border-white/[0.08] hover:bg-[#292B34] text-xs font-medium text-[#EEEFF2] transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4 text-[#9297A5]" />
               <span>Retry Training Session</span>
-            </Button>
+            </button>
             <Link href="/work-map">
-              <Button variant="glow">
-                <GitFork className="w-3.5 h-3.5 mr-1" />
-                <span>Return to AI Work Map</span>
-              </Button>
+              <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F5EFE6] text-[#16171B] hover:bg-white text-xs font-semibold shadow-md transition-all cursor-pointer">
+                <GitFork className="w-4 h-4 text-[#16171B]" />
+                <span>Return to Expert Work Map</span>
+              </button>
             </Link>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* 3. Session Log: Drill 1 -> Completed, Drill 2 -> Active (Requirement 7) */}
-      {currentDrillNumber <= 3 && (
-        <Card className="border-white/10 bg-[#0E1522]/90">
-          <CardHeader className="pb-3 border-b border-white/5">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 font-mono">
-              <FileText className="w-3.5 h-3.5 text-brand-400" />
+      {/* ═══════════════════════════════════════════════════════════════
+          3. CLEAN TRAINING SESSION LOG
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="p-5 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-xl space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[#38BDF8]" />
+            <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#EEEFF2]">
               Training Session Log ({dynamicScenarios.length} Scenarios)
             </span>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-3">
-            {dynamicScenarios.map((sc) => {
-              const drillNum = sc.drillNumber;
-              const completedTurn = trainingHistory.find((t) => t.scenarioNumber === drillNum);
-              const isCompleted = Boolean(completedTurn);
-              const isActive = currentDrillNumber === drillNum;
+          </div>
+          <span className="text-[11px] font-mono text-[#646977]">
+            Sarah Chen Heuristic Validation
+          </span>
+        </div>
 
-              return (
-                <div
-                  key={sc.id}
-                  className={`p-3.5 rounded-xl border transition-all text-xs space-y-2 ${
-                    isActive
-                      ? "bg-brand-500/10 border-brand-500/40 shadow-sm"
-                      : isCompleted
-                      ? "bg-black/40 border-white/10"
-                      : "bg-black/20 border-white/5 text-slate-500"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                          isActive
-                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                            : isCompleted
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                            : "bg-slate-800 text-slate-500"
-                        }`}
-                      >
-                        {isActive
-                          ? `Drill ${drillNum} • ACTIVE`
+        <div className="space-y-3">
+          {dynamicScenarios.map((sc) => {
+            const drillNum = sc.drillNumber;
+            const completedTurn = trainingHistory.find((t) => t.scenarioNumber === drillNum);
+            const isCompleted = Boolean(completedTurn);
+            const isActive = currentDrillNumber === drillNum;
+
+            return (
+              <div
+                key={sc.id}
+                className={`p-4 rounded-xl border transition-all text-xs space-y-2.5 ${
+                  isActive
+                    ? "bg-[#292B34] border-[#38BDF8]/40 shadow-sm"
+                    : isCompleted
+                    ? "bg-[#181A1F] border-white/[0.08]"
+                    : "bg-[#131417] border-white/[0.04] text-[#646977]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                        isActive
+                          ? "bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30"
                           : isCompleted
-                          ? `Drill ${drillNum} • COMPLETED`
-                          : `Drill ${drillNum} • UPCOMING`}
-                      </span>
-                      <span className="font-semibold text-white">
-                        {sc.title}
-                      </span>
-                    </div>
-
-                    {isCompleted && completedTurn && (
-                      <span className="font-mono text-emerald-400 font-bold">
-                        Score: {completedTurn.evaluation.score}/100
-                      </span>
-                    )}
-
-                    {isActive && (
-                      <span className="text-[11px] text-cyan-400 font-mono flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                        In Progress
-                      </span>
-                    )}
+                          ? "bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30"
+                          : "bg-[#1F2127] text-[#646977]"
+                      }`}
+                    >
+                      {isActive
+                        ? `Drill ${drillNum} • ACTIVE`
+                        : isCompleted
+                        ? `Drill ${drillNum} • COMPLETED`
+                        : `Drill ${drillNum} • UPCOMING`}
+                    </span>
+                    <span className="font-semibold text-[#EEEFF2]">
+                      {sc.title}
+                    </span>
                   </div>
 
-                  <p className="text-slate-300 font-medium">
-                    &ldquo;{sc.question}&rdquo;
-                  </p>
-
                   {isCompleted && completedTurn && (
-                    <div className="space-y-1 pt-1 border-t border-white/5">
-                      <div className="text-slate-300">
-                        <span className="text-slate-500 font-mono">Your Answer: </span>
-                        &ldquo;{completedTurn.traineeAnswer}&rdquo;
-                        {completedTurn.rawTranscript && completedTurn.rawTranscript !== completedTurn.traineeAnswer && (
-                          <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
-                            Raw transcript: &ldquo;{completedTurn.rawTranscript}&rdquo;
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-slate-400 text-[11px]">
-                        <span className="text-cyan-400 font-mono">Feedback: </span>
-                        {completedTurn.evaluation.feedback}
-                      </div>
-                    </div>
+                    <span className="font-mono text-[#34D399] font-bold">
+                      Score: {completedTurn.evaluation.score} / 100
+                    </span>
                   )}
 
                   {isActive && (
-                    <div className="pt-1 text-[11px] text-slate-400 font-mono">
-                      Status: Awaiting trainee answer via microphone or text fallback.
-                    </div>
+                    <span className="text-[11px] text-[#38BDF8] font-mono flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+                      In Progress
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+
+                <p className="text-[#9297A5] font-medium leading-relaxed">
+                  &ldquo;{sc.question}&rdquo;
+                </p>
+
+                {isCompleted && completedTurn && (
+                  <div className="space-y-1.5 pt-2 border-t border-white/[0.06]">
+                    <div className="text-[#EEEFF2]">
+                      <span className="text-[#646977] font-mono text-[10px] uppercase">Your Answer: </span>
+                      &ldquo;{completedTurn.traineeAnswer}&rdquo;
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#9297A5]">
+                      <span>
+                        <strong className="text-[#38BDF8] font-mono">Feedback: </strong>
+                        {completedTurn.evaluation.feedback}
+                      </span>
+                      <button
+                        onClick={() => speakVoiceTutorFeedback(completedTurn.evaluation.feedback)}
+                        className="text-[#38BDF8] hover:text-white flex items-center gap-1 font-mono text-[10.5px] cursor-pointer"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        <span>Replay Audio</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {isActive && (
+                  <div className="pt-1 text-[11px] text-[#646977] font-mono">
+                    Status: Awaiting trainee answer via microphone or text fallback.
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

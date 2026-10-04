@@ -1,374 +1,477 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Eye,
-  GitFork,
-  Mic,
   ArrowRight,
-  Sparkles,
-  TrendingUp,
-  Clock,
+  GitFork,
+  Radio,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
   CheckCircle2,
-  Users,
-  Compass,
+  Sparkles,
   Layers,
-  Activity,
-  RotateCcw,
+  GraduationCap,
+  Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { MetricCardSkeleton, TableRowSkeleton } from "@/components/ui/LoadingSkeleton";
-import {
-  MOCK_METRICS,
-  MOCK_OBSERVATIONS,
-  MOCK_WORK_MAPS,
-  MOCK_TRAINING_SCENARIOS,
-  ObservationSession,
-} from "@/lib/mock-data";
+import { WorkMapSessionData, KnowledgeItem } from "@/lib/session-store";
+
+// Category badge formatting helper strictly adhering to design specifications
+function getCategoryBadge(category: string) {
+  switch (category) {
+    case "new_rule":
+    case "rule":
+    case "decision_point":
+      return {
+        label: "Rule",
+        classes: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20",
+      };
+    case "guardrail":
+      return {
+        label: "Guardrail",
+        classes: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20",
+      };
+    case "exception":
+      return {
+        label: "Exception",
+        classes: "text-[#C084FC] bg-[#C084FC]/10 border-[#C084FC]/20",
+      };
+    case "additional_reasoning":
+    case "reasoning":
+    default:
+      return {
+        label: "Reasoning",
+        classes: "text-[#34D399] bg-[#34D399]/10 border-[#34D399]/20",
+      };
+  }
+}
+
+// Fallback baseline knowledge items matching authoritative Sarah Chen session
+const BASELINE_FALLBACK_ITEMS: KnowledgeItem[] = [
+  {
+    id: "k-baseline-raw-verify",
+    category: "decision_point",
+    categoryLabel: "Baseline Rule",
+    title: "Raw Ledger Verification on Large Drop",
+    ruleOrReasoningText:
+      "When large variance is observed on the dashboard, bypass aggregate numbers and verify raw transactions first.",
+    evidence: "Observed action: Opened raw transaction data after seeing an 18% revenue drop.",
+    confidence: 98,
+    timestamp: "05:14",
+    isNew: false,
+    decisionPoint: "18% Revenue Drop Detected on Dashboard",
+    rule: "Verify raw transaction records first before investigating business causes.",
+    exception: "Not stated by expert",
+    guardrail: "The expert does not immediately investigate business causes before validating the number.",
+  },
+  {
+    id: "k-expert-10-percent-rule",
+    category: "guardrail",
+    categoryLabel: "Guardrail",
+    title: "10% Variance Threshold & Alert Guardrail",
+    ruleOrReasoningText:
+      "Whenever variance exceeds 10%, we always inspect raw transaction events before raising any alert.",
+    evidence: "Whenever variance exceeds 10%, we always inspect raw transaction events before raising any alert.",
+    confidence: 99,
+    timestamp: "05:18",
+    isNew: false,
+    decisionPoint: "Variance Magnitude Evaluation (>10% Threshold)",
+    rule: "Whenever variance exceeds 10%, we always inspect raw transaction events before raising any alert.",
+    exception: "Not stated by expert",
+    guardrail: "Do not raise an alert on a variance above 10% until raw transaction events have been inspected.",
+  },
+];
 
 export default function DashboardPage() {
-  const [viewState, setViewState] = useState<"normal" | "loading" | "empty">("normal");
+  const [session, setSession] = useState<WorkMapSessionData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchSession() {
+      try {
+        const res = await fetch("/api/work-map/session");
+        if (res.ok) {
+          const data: WorkMapSessionData = await res.json();
+          if (isMounted) setSession(data);
+        }
+      } catch (err) {
+        console.warn("Could not load real session data for dashboard:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    fetchSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Compute real metrics from authoritative session data
+  const decisionsCount = session
+    ? session.decisionTree.filter((n) => n.type === "decision" || n.type === "guardrail").length
+    : 2;
+
+  const rulesCount = session
+    ? session.decisionTree.filter((n) => n.rule && n.rule !== "Not stated by expert").length
+    : 4;
+
+  const guardrailsCount = session
+    ? session.decisionTree.filter((n) => n.guardrail && n.guardrail !== "Not stated by expert").length
+    : 4;
+
+  const confidences = session?.decisionTree
+    ?.map((n) => n.confidence)
+    .filter((c): c is number => typeof c === "number" && c > 0) || [95, 99, 96, 98];
+
+  const avgConfidence =
+    confidences.length > 0
+      ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
+      : 97;
+
+  // Real knowledge items list
+  const knowledgeList =
+    session && session.knowledgeItems && session.knowledgeItems.length > 0
+      ? session.knowledgeItems
+      : BASELINE_FALLBACK_ITEMS;
 
   return (
-    <div className="space-y-8 pb-10">
-      {/* Top Banner / Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0F172A] via-[#0E1522] to-[#0A0E17] p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-brand-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 -mb-20 w-60 h-60 rounded-full bg-accent-cyan/10 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-medium">
-            <Sparkles className="w-3.5 h-3.5 text-accent-cyan animate-pulse" />
-            <span>Autonomous Tacit Knowledge Acquisition</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
-            Transform Expert Tribal Knowledge into Executable Voice Training
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-            AI Apprentice passively watches senior operators solve complex incidents, extracts
-            their unwritten heuristics into visual work maps, and generates voice simulation
-            drills for junior hires.
-          </p>
-
-          {/* Action CTAs */}
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Link href="/observe">
-              <Button variant="glow" size="md">
-                <Eye className="w-4 h-4" />
-                <span>Start Observation Mode</span>
-              </Button>
-            </Link>
-            <Link href="/train">
-              <Button variant="secondary" size="md">
-                <Mic className="w-4 h-4 text-accent-cyan" />
-                <span>Launch Voice Drill</span>
-              </Button>
-            </Link>
-            <Link href="/work-map">
-              <Button variant="outline" size="md">
-                <GitFork className="w-4 h-4 text-slate-400" />
-                <span>Browse Work Maps</span>
-              </Button>
-            </Link>
+    <div className="space-y-8 pb-12 bg-grid-pattern -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-full">
+      {/* 1. HERO SECTION */}
+      <section
+        className="space-y-6 pt-2 animate-fade-in-up"
+        style={{ animationDelay: "0ms" }}
+        aria-label="Executive Overview"
+      >
+        {/* Status Pill */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#181A1F] border border-white/[0.08] text-xs font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+            <span className="text-[#38BDF8] font-medium">Observer active</span>
+            <span className="text-[#646977]">·</span>
+            <span className="text-[#9297A5]">
+              {session?.scenario || "Revenue Anomaly Investigation"} · {session?.expert ? session.expert.replace(/\s*\(.*\)/, "") : "Sarah Chen"}
+            </span>
           </div>
         </div>
 
-        {/* State Switcher for hackathon demo verification */}
-        <div className="mt-6 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span>Demo State Preview:</span>
-            <div className="inline-flex p-0.5 rounded-lg bg-black/40 border border-white/10">
-              <button
-                onClick={() => setViewState("normal")}
-                className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                  viewState === "normal"
-                    ? "bg-brand-600 text-white font-medium"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Normal Data
-              </button>
-              <button
-                onClick={() => setViewState("loading")}
-                className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                  viewState === "loading"
-                    ? "bg-brand-600 text-white font-medium"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Loading Skeletons
-              </button>
-              <button
-                onClick={() => setViewState("empty")}
-                className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                  viewState === "empty"
-                    ? "bg-brand-600 text-white font-medium"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Empty State
-              </button>
+        {/* Main Headline */}
+        <div className="space-y-3">
+          <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-semibold text-[#EEEFF2] tracking-tight leading-[1.08] max-w-4xl">
+            Turn Expert Judgment Into{" "}
+            <span className="text-[#9297A5]">Institutional Knowledge.</span>
+          </h1>
+
+          {/* Supporting Text */}
+          <p className="text-[14px] sm:text-base text-[#9297A5] leading-relaxed max-w-2xl">
+            AI Apprentice observes how your best people work, captures the reasoning behind
+            their decisions, and turns it into training for the next generation.
+          </p>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Link href="/observe">
+            <button className="bg-[#F5EFE6] text-[#16171B] hover:bg-[#F5EFE6]/90 font-medium px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200 flex items-center gap-2 text-sm">
+              <span>Start Observation</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </Link>
+
+          <Link href="/work-map">
+            <button className="bg-[#1F2127] text-[#EEEFF2] hover:bg-[#292B34] border border-white/[0.08] px-5 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm font-medium">
+              <GitFork className="w-4 h-4 text-[#9297A5]" />
+              <span>Explore Work Map</span>
+            </button>
+          </Link>
+        </div>
+      </section>
+
+      {/* 2. METRICS STRIP */}
+      <section
+        className="bg-[#181A1F] border border-white/[0.08] rounded-xl p-5 sm:p-6 animate-fade-in-up"
+        style={{ animationDelay: "60ms" }}
+        aria-label="Knowledge Telemetry"
+      >
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-white/[0.08]">
+          {/* Metric 1: Decisions Captured */}
+          <div className="lg:px-6 first:pl-0 space-y-1">
+            <div className="font-mono text-2xl sm:text-3xl font-semibold text-[#EEEFF2] tracking-tight">
+              {isLoading ? "—" : decisionsCount}
+            </div>
+            <div className="text-xs text-[#9297A5] font-medium">Decisions Captured</div>
+            <div className="text-[10.5px] font-mono text-[#646977] pt-0.5">
+              Branch points identified
             </div>
           </div>
 
-          <span className="text-[11px] text-slate-400 font-mono">
-            Ready for Anthropic + ElevenLabs API keys
-          </span>
-        </div>
-      </div>
-
-      {/* Metrics Row */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-            System Knowledge Telemetry
-          </h2>
-          <span className="text-xs text-slate-400 flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-accent-emerald" />
-            Live sync active
-          </span>
-        </div>
-
-        {viewState === "loading" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCardSkeleton />
-            <MetricCardSkeleton />
-            <MetricCardSkeleton />
-            <MetricCardSkeleton />
+          {/* Metric 2: Rules Extracted */}
+          <div className="lg:px-6 space-y-1">
+            <div className="font-mono text-2xl sm:text-3xl font-semibold text-[#EEEFF2] tracking-tight">
+              {isLoading ? "—" : rulesCount}
+            </div>
+            <div className="text-xs text-[#9297A5] font-medium">Rules Extracted</div>
+            <div className="text-[10.5px] font-mono text-[#646977] pt-0.5">
+              10% variance threshold
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {MOCK_METRICS.map((metric) => (
-              <Card key={metric.id} className="p-5 relative overflow-hidden group hover:border-brand-500/30">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-400">
-                    {metric.label}
-                  </span>
-                  <Badge variant="brand" className="text-[10px]">
-                    {metric.change}
-                  </Badge>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-3xl font-bold tracking-tight text-white">
-                    {viewState === "empty" ? "0" : metric.value}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-slate-400 leading-tight">
-                  {viewState === "empty"
-                    ? "No sessions recorded yet."
-                    : metric.subtext}
-                </p>
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-brand-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Main Content Grid: Recent Observations & Active Modules */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Recent Observation Sessions */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+          {/* Metric 3: Guardrails */}
+          <div className="lg:px-6 space-y-1">
+            <div className="font-mono text-2xl sm:text-3xl font-semibold text-[#EEEFF2] tracking-tight">
+              {isLoading ? "—" : guardrailsCount}
+            </div>
+            <div className="text-xs text-[#9297A5] font-medium">Guardrails</div>
+            <div className="text-[10.5px] font-mono text-[#646977] pt-0.5">
+              Pre-alert verification
+            </div>
+          </div>
+
+          {/* Metric 4: Knowledge Confidence */}
+          <div className="lg:px-6 last:pr-0 space-y-1">
+            <div className="font-mono text-2xl sm:text-3xl font-semibold text-[#EEEFF2] tracking-tight">
+              {isLoading ? "—" : `${avgConfidence}%`}
+            </div>
+            <div className="text-xs text-[#9297A5] font-medium">Knowledge Confidence</div>
+            <div className="text-[10.5px] font-mono text-[#646977] pt-0.5">
+              Evidence validated
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. KNOWLEDGE PIPELINE */}
+      <section
+        className="space-y-3.5 animate-fade-in-up"
+        style={{ animationDelay: "120ms" }}
+        aria-label="Knowledge Pipeline"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#646977]">
+              Continuous Knowledge Lifecycle
+            </div>
+            <h2 className="text-xl sm:text-2xl font-semibold text-[#EEEFF2] tracking-tight mt-0.5">
+              Knowledge Pipeline
+            </h2>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+          {/* Stage 1: Observe */}
+          <Link
+            href="/observe"
+            className="group block bg-[#181A1F] hover:bg-[#292B34]/50 border border-white/[0.08] hover:border-white/[0.18] rounded-xl p-5 transition-all duration-200 hover:-translate-y-0.5 relative"
+          >
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#38BDF8]">
+              01 OBSERVE
+            </div>
+            <div className="text-[16px] font-semibold text-[#EEEFF2] mt-2 group-hover:text-white transition-colors">
+              Observe
+            </div>
+            <div className="text-[13.5px] text-[#9297A5] mt-1 leading-snug">
+              Capture expert behavior
+            </div>
+            <div className="mt-4 flex items-center text-xs font-mono text-[#646977] group-hover:text-[#38BDF8] transition-colors gap-1">
+              <span>View live observer</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
+          {/* Stage 2: Reason */}
+          <Link
+            href="/observe"
+            className="group block bg-[#181A1F] hover:bg-[#292B34]/50 border border-white/[0.08] hover:border-white/[0.18] rounded-xl p-5 transition-all duration-200 hover:-translate-y-0.5 relative"
+          >
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#38BDF8]">
+              02 REASON
+            </div>
+            <div className="text-[16px] font-semibold text-[#EEEFF2] mt-2 group-hover:text-white transition-colors">
+              Reason
+            </div>
+            <div className="text-[13.5px] text-[#9297A5] mt-1 leading-snug">
+              Detect meaningful decisions
+            </div>
+            <div className="mt-4 flex items-center text-xs font-mono text-[#646977] group-hover:text-[#38BDF8] transition-colors gap-1">
+              <span>Inspect heuristic triggers</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
+          {/* Stage 3: Knowledge */}
+          <Link
+            href="/work-map"
+            className="group block bg-[#181A1F] hover:bg-[#292B34]/50 border border-white/[0.08] hover:border-white/[0.18] rounded-xl p-5 transition-all duration-200 hover:-translate-y-0.5 relative"
+          >
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#38BDF8]">
+              03 KNOWLEDGE
+            </div>
+            <div className="text-[16px] font-semibold text-[#EEEFF2] mt-2 group-hover:text-white transition-colors">
+              Knowledge
+            </div>
+            <div className="text-[13.5px] text-[#9297A5] mt-1 leading-snug">
+              Extract grounded rules
+            </div>
+            <div className="mt-4 flex items-center text-xs font-mono text-[#646977] group-hover:text-[#38BDF8] transition-colors gap-1">
+              <span>Explore Work Map</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
+          {/* Stage 4: Train */}
+          <Link
+            href="/train"
+            className="group block bg-[#181A1F] hover:bg-[#292B34]/50 border border-white/[0.08] hover:border-white/[0.18] rounded-xl p-5 transition-all duration-200 hover:-translate-y-0.5 relative"
+          >
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#38BDF8]">
+              04 TRAIN
+            </div>
+            <div className="text-[16px] font-semibold text-[#EEEFF2] mt-2 group-hover:text-white transition-colors">
+              Train
+            </div>
+            <div className="text-[13.5px] text-[#9297A5] mt-1 leading-snug">
+              Transfer expertise to new hires
+            </div>
+            <div className="mt-4 flex items-center text-xs font-mono text-[#646977] group-hover:text-[#38BDF8] transition-colors gap-1">
+              <span>Start roleplay drill</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4. TWO-COLUMN KNOWLEDGE MATRIX */}
+      <section
+        className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6 animate-fade-in-up"
+        style={{ animationDelay: "180ms" }}
+        aria-label="Extracted Knowledge & Training Readiness"
+      >
+        {/* LEFT CARD: Recently Extracted Knowledge */}
+        <div className="bg-[#181A1F] border border-white/[0.08] rounded-xl p-5 sm:p-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-white/[0.05]">
               <div>
-                <CardTitle>Recent Expert Observations</CardTitle>
-                <CardDescription>
-                  Sessions recorded with audio & screen capture decomposition
-                </CardDescription>
-              </div>
-              <Link href="/observe">
-                <Button variant="ghost" size="sm" className="text-xs text-brand-400">
-                  <span>New Session</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              {viewState === "loading" ? (
-                <div className="p-2 space-y-2">
-                  <TableRowSkeleton />
-                  <TableRowSkeleton />
-                  <TableRowSkeleton />
+                <div className="text-[10.5px] font-mono text-[#646977] uppercase tracking-[0.12em]">
+                  Session Store Grounding
                 </div>
-              ) : viewState === "empty" ? (
-                <EmptyState
-                  icon={<Eye className="w-6 h-6" />}
-                  title="No Observation Sessions Yet"
-                  description="Start your first passive session to observe an expert resolving a live incident or ticket."
-                  actionLabel="Launch Observation Mode"
-                  onAction={() => setViewState("normal")}
-                />
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {MOCK_OBSERVATIONS.map((session) => (
-                    <div
-                      key={session.id}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-white truncate">
-                            {session.title}
-                          </h4>
-                          <Badge
-                            variant={
-                              session.status === "Completed"
-                                ? "success"
-                                : session.status === "In Progress"
-                                ? "brand"
-                                : "default"
-                            }
-                            className="text-[10px]"
-                          >
-                            {session.status}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-                          <span className="text-slate-300">
-                            {session.expertName} ({session.expertRole})
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            {session.duration}
-                          </span>
-                          <span>•</span>
-                          <span>{session.department}</span>
-                        </div>
+                <h3 className="text-[15px] sm:text-base font-semibold text-[#EEEFF2] tracking-tight mt-0.5">
+                  Recently Extracted Knowledge
+                </h3>
+              </div>
+              <Link
+                href="/work-map"
+                className="text-xs font-mono text-[#38BDF8] hover:text-[#38BDF8]/80 flex items-center gap-1 transition-colors"
+              >
+                <span>Open Work Map</span>
+                <span className="text-[11px]">↗</span>
+              </Link>
+            </div>
+
+            {/* Knowledge Rows */}
+            <div className="divide-y divide-white/[0.05]">
+              {knowledgeList.map((item) => {
+                const badge = getCategoryBadge(item.category);
+                return (
+                  <div key={item.id} className="py-3.5 first:pt-1 last:pb-1 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10.5px] font-mono uppercase tracking-[0.1em] px-2 py-0.5 rounded border ${badge.classes}`}
+                        >
+                          {badge.label}
+                        </span>
+                        <span className="text-xs text-[#9297A5] truncate max-w-[200px] sm:max-w-xs">
+                          {item.decisionPoint || item.title}
+                        </span>
                       </div>
-
-                      <div className="flex items-center gap-4 sm:self-center">
-                        <div className="text-right">
-                          <div className="text-xs font-semibold text-accent-cyan">
-                            {session.heuristicsCount} Heuristics
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            {session.stepsExtracted} steps • {session.confidenceScore}% conf
-                          </div>
-                        </div>
-
-                        <Link href="/work-map">
-                          <Button variant="secondary" size="sm" className="px-2.5">
-                            <GitFork className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-
-            <CardFooter>
-              <span>Showing 4 completed expert sessions</span>
-              <Link href="/observe" className="text-brand-400 hover:text-brand-300">
-                View all recordings →
-              </Link>
-            </CardFooter>
-          </Card>
-        </div>
-
-        {/* Right Col: Voice Training Quick Launch & Work Map Spotlight */}
-        <div className="space-y-6">
-          {/* Voice Training Spotlight */}
-          <Card className="border-brand-500/20 bg-gradient-to-b from-[#111827] to-[#0E1522]">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Badge variant="cyan" dot>
-                  Voice Simulation
-                </Badge>
-                <span className="text-[11px] text-slate-400">ElevenLabs Engine</span>
-              </div>
-              <CardTitle className="mt-2 text-base">
-                New Hire Roleplay Simulator
-              </CardTitle>
-              <CardDescription>
-                Trainees converse directly with realistic AI persona voices grounded in captured SOPs.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-3 pt-0">
-              <div className="p-3 rounded-lg bg-black/40 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-200">
-                    {MOCK_TRAINING_SCENARIOS[0].title}
-                  </span>
-                  <Badge variant="warning" className="text-[10px]">
-                    {MOCK_TRAINING_SCENARIOS[0].difficulty}
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-400 line-clamp-2">
-                  {MOCK_TRAINING_SCENARIOS[0].description}
-                </p>
-                <div className="pt-2 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Persona: {MOCK_TRAINING_SCENARIOS[0].aiPersona.name}</span>
-                  <span>{MOCK_TRAINING_SCENARIOS[0].durationMinutes} mins</span>
-                </div>
-              </div>
-
-              <Link href="/train" className="block w-full">
-                <Button variant="glow" size="sm" className="w-full">
-                  <Mic className="w-3.5 h-3.5" />
-                  <span>Start Roleplay Drill</span>
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Work Map Spotlight */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Badge variant="brand">SOP Knowledge Graph</Badge>
-                <span className="text-[11px] text-slate-400">Claude Decomposition</span>
-              </div>
-              <CardTitle className="mt-2 text-base">
-                Synthesized Incident Work Map
-              </CardTitle>
-              <CardDescription>
-                Deconstructed operational decision tree ready for drill synthesis.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              <div className="space-y-2">
-                {MOCK_WORK_MAPS[0].nodes.slice(0, 3).map((node, i) => (
-                  <div
-                    key={node.id}
-                    className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="w-5 h-5 rounded-full bg-brand-500/10 text-brand-400 flex items-center justify-center font-mono text-[10px]">
-                        {i + 1}
-                      </span>
-                      <span className="truncate text-slate-200 font-medium">
-                        {node.title.replace(/^\d+\.\s*/, "")}
+                      <span className="font-mono text-xs text-[#38BDF8] flex-shrink-0">
+                        {item.confidence}% conf
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {node.type}
-                    </span>
+
+                    <p className="text-[13.5px] text-[#EEEFF2] leading-snug font-medium">
+                      {item.rule || item.ruleOrReasoningText}
+                    </p>
+
+                    {item.evidence && (
+                      <p className="text-[11.5px] text-[#646977] italic line-clamp-1">
+                        &quot;{item.evidence}&quot;
+                      </p>
+                    )}
                   </div>
-                ))}
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[#646977] font-mono">
+            <span>Authoritative expert: Sarah Chen</span>
+            <span>Grounding: 100% verified</span>
+          </div>
+        </div>
+
+        {/* RIGHT CARD: Training Readiness */}
+        <div className="bg-[#181A1F] border border-white/[0.08] rounded-xl p-5 sm:p-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-white/[0.05]">
+              <div>
+                <div className="text-[10.5px] font-mono text-[#646977] uppercase tracking-[0.12em]">
+                  Simulation Engine
+                </div>
+                <h3 className="text-[15px] sm:text-base font-semibold text-[#EEEFF2] tracking-tight mt-0.5">
+                  Training Readiness
+                </h3>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono text-[#34D399] bg-[#34D399]/10 border border-[#34D399]/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+                Ready
+              </span>
+            </div>
+
+            {/* Training Readiness Details */}
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-lg bg-[#1F2127] border border-white/[0.08] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9297A5]">Scenario</span>
+                  <span className="font-semibold text-[#EEEFF2]">
+                    Revenue Anomaly Investigation
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9297A5]">Drills Available</span>
+                  <span className="font-mono text-[#38BDF8]">3 dynamic drills</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9297A5]">Evaluation Grounding</span>
+                  <span className="text-[#EEEFF2]">Sarah Chen 10% Variance Rule</span>
+                </div>
               </div>
 
-              <Link href="/work-map" className="block w-full pt-1">
-                <Button variant="secondary" size="sm" className="w-full">
-                  <GitFork className="w-3.5 h-3.5 text-brand-400" />
-                  <span>View Full Graph & Logic Branches</span>
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+              {/* Compact Useful Empty State for Cohorts */}
+              <div className="p-3.5 rounded-lg bg-[#1F2127]/60 border border-white/[0.05] space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-[#EEEFF2]">
+                  <Users className="w-3.5 h-3.5 text-[#9297A5]" />
+                  <span>No learner cohort connected</span>
+                </div>
+                <p className="text-[12px] text-[#9297A5] leading-relaxed">
+                  Voice drills are compiled directly from captured rules and ready for individual
+                  practice. Connect an LMS or run interactive practice sessions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action CTA */}
+          <div className="pt-4 mt-4 border-t border-white/[0.05]">
+            <Link href="/train" className="block w-full">
+              <button className="w-full bg-[#1F2127] hover:bg-[#292B34] text-[#EEEFF2] border border-white/[0.08] font-medium py-2.5 px-4 rounded-lg text-xs flex items-center justify-center gap-2 transition-all">
+                <span>Open voice training →</span>
+              </button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -25,13 +25,14 @@ import {
   Loader2,
   Mic,
   RotateCcw,
+  ChevronRight,
+  Database,
+  BarChart3,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { WaveformVisualizer } from "@/components/ui/WaveformVisualizer";
-import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import {
   MOCK_LIVE_TRANSCRIPT,
   MOCK_LIVE_HEURISTICS,
@@ -105,7 +106,8 @@ const SCENARIO_EVENTS: ScenarioEvent[] = [
     shortLabel: "2. 18% Drop",
     name: "Seeing 18% Drop",
     action: "Noticed an unexpected 18% drop in weekly recurring revenue on the overview chart.",
-    transcript: "Wait, that's strange. The revenue graph shows an 18% drop this week compared to baseline. I'm not going to start checking churn logs or asking marketing if a campaign failed yet.",
+    transcript:
+      "Wait, that's strange. The revenue graph shows an 18% drop this week compared to baseline. I'm not going to start checking churn logs or asking marketing if a campaign failed yet.",
     context: "Revenue anomaly investigation",
   },
   {
@@ -113,7 +115,8 @@ const SCENARIO_EVENTS: ScenarioEvent[] = [
     shortLabel: "3. Open Raw SQL",
     name: "Opening Raw SQL (Decision Point)",
     action: "Opened raw transaction data after seeing an 18% revenue drop.",
-    transcript: "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
+    transcript:
+      "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
     context: "Revenue anomaly investigation",
   },
 ];
@@ -165,7 +168,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
         id: "evt-step-2-notice-drop",
         timestamp: "00:00:04",
         speaker: "Expert",
-        content: "I'm looking at our headline numbers. There is an 18% revenue drop showing in EMEA week-over-week.",
+        content:
+          "I'm looking at our headline numbers. There is an 18% revenue drop showing in EMEA week-over-week.",
         type: "speech",
       },
     ],
@@ -184,7 +188,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
         id: "evt-step-3-hold-business",
         timestamp: "00:00:08",
         speaker: "Expert",
-        content: "I'm not going to start checking churn logs or asking marketing if a campaign failed yet.",
+        content:
+          "I'm not going to start checking churn logs or asking marketing if a campaign failed yet.",
         type: "speech",
         metadata: { actionType: "suppress_premature_action" },
       },
@@ -195,7 +200,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
     timeSec: 12,
     timeFormatted: "00:12",
     title: "Open Raw SQL",
-    description: "Bypasses aggregated dashboard to audit raw transaction events directly in Snowflake.",
+    description:
+      "Bypasses aggregated dashboard to audit raw transaction events directly in Snowflake.",
     targetApp: "Snowflake",
     aiStatus: "Decision detected",
     screenFocus: "Snowflake",
@@ -204,7 +210,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
         id: "evt-step-4-open-raw",
         timestamp: "00:00:12",
         speaker: "System",
-        content: "Switched active window to Snowflake SQL Editor: Querying raw_events.stripe_transactions directly",
+        content:
+          "Switched active window to Snowflake SQL Editor: Querying raw_events.stripe_transactions directly",
         type: "action",
         metadata: { targetApp: "Snowflake", actionType: "source_data_query" },
       },
@@ -212,7 +219,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
         id: "evt-step-5-explain-why",
         timestamp: "00:00:12",
         speaker: "Expert",
-        content: "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
+        content:
+          "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
         type: "speech",
       },
     ],
@@ -235,10 +243,8 @@ type AiObserverStatus = "Observing" | "Decision detected" | "Why question ready"
 export default function ObservePage() {
   const [isRecording, setIsRecording] = useState(true);
   const [timerSeconds, setTimerSeconds] = useState(314); // 05:14
-  const [activeTab, setActiveTab] = useState<"stream" | "heuristics">("stream");
   const [heuristics, setHeuristics] = useState<HeuristicItem[]>(MOCK_LIVE_HEURISTICS);
   const [transcript, setTranscript] = useState<LiveTranscriptItem[]>(MOCK_LIVE_TRANSCRIPT);
-  const [viewMode, setViewMode] = useState<"normal" | "empty" | "loading">("normal");
 
   const [aiObserverStatus, setAiObserverStatus] = useState<AiObserverStatus>("Observing");
   const [selectedEventId, setSelectedEventId] = useState<string>("event-open-raw");
@@ -250,12 +256,12 @@ export default function ObservePage() {
   const analyzedStepRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording || viewMode !== "normal") return;
+    if (!isRecording) return;
     const interval = setInterval(() => {
       setTimerSeconds((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [isRecording, viewMode]);
+  }, [isRecording]);
 
   const formatTimer = (sec: number) => {
     const mins = Math.floor(sec / 60);
@@ -266,10 +272,14 @@ export default function ObservePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [liveAnalysis, setLiveAnalysis] = useState<ClaudeAnalysis | null>(null);
-  const [voiceStatus, setVoiceStatus] = useState<"idle" | "generating" | "playing" | "error">("idle");
+  const [voiceStatus, setVoiceStatus] = useState<"idle" | "generating" | "playing" | "error">(
+    "idle"
+  );
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [micStatus, setMicStatus] = useState<"ready" | "recording" | "transcribing" | "complete" | "error">("ready");
+  const [micStatus, setMicStatus] = useState<
+    "ready" | "recording" | "transcribing" | "complete" | "error"
+  >("ready");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [expertResponse, setExpertResponse] = useState<string>("");
   const [micError, setMicError] = useState<string | null>(null);
@@ -358,7 +368,10 @@ export default function ObservePage() {
       streamRef.current = stream;
 
       let options: MediaRecorderOptions | undefined = undefined;
-      if (typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function") {
+      if (
+        typeof MediaRecorder !== "undefined" &&
+        typeof MediaRecorder.isTypeSupported === "function"
+      ) {
         if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
           options = { mimeType: "audio/webm;codecs=opus" };
         } else if (MediaRecorder.isTypeSupported("audio/webm")) {
@@ -437,7 +450,7 @@ export default function ObservePage() {
       setMicError(
         err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
           ? "Microphone access was denied. Please allow microphone permissions in your browser."
-          : (err.message || "Could not access microphone.")
+          : err.message || "Could not access microphone."
       );
       setMicStatus("error");
     }
@@ -475,7 +488,8 @@ export default function ObservePage() {
 
     const payload = {
       expertAction: "Opened raw transaction data after seeing an 18% revenue drop.",
-      expertTranscript: "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
+      expertTranscript:
+        "I don't trust the dashboard number when the variance is this large, so I verify the raw transactions first.",
       context: "Revenue anomaly investigation",
       whyQuestion: liveAnalysis.whyQuestion,
       expertResponse: expertResponse,
@@ -496,7 +510,6 @@ export default function ObservePage() {
       const data: ClaudeAnalysis = await res.json();
       setLiveAnalysis(data);
 
-      // Autonomous AI Observer Status mapping
       if (data.shouldAskWhy) {
         setAiObserverStatus("Why question ready");
       } else if (data.isDecisionPoint) {
@@ -559,7 +572,10 @@ export default function ObservePage() {
     setIsAnalyzing(true);
     setAnalysisError(null);
 
-    const event = overrideEvent || SCENARIO_EVENTS.find((e) => e.id === selectedEventId) || SCENARIO_EVENTS[2];
+    const event =
+      overrideEvent ||
+      SCENARIO_EVENTS.find((e) => e.id === selectedEventId) ||
+      SCENARIO_EVENTS[2];
 
     const payload = {
       expertAction: event.action,
@@ -582,7 +598,6 @@ export default function ObservePage() {
       const data: ClaudeAnalysis = await res.json();
       setLiveAnalysis(data);
 
-      // Autonomous AI Observer Status mapping
       if (data.shouldAskWhy) {
         setAiObserverStatus("Why question ready");
       } else if (data.isDecisionPoint) {
@@ -595,7 +610,6 @@ export default function ObservePage() {
       const STABLE_AI_EVENT_ID = `evt-ai-analysis-${event.id}`;
       const STABLE_HEURISTIC_ID = `h-claude-rule-${event.id}`;
 
-      // 1. Deduplicate Action Feed: update existing or append once
       setTranscript((prev) => {
         const aiItem: LiveTranscriptItem = {
           id: STABLE_AI_EVENT_ID,
@@ -607,7 +621,10 @@ export default function ObservePage() {
             ? `Decision Detected (${Math.round(data.confidence * 100)}% Conf): ${data.rule || "Anomaly observed, awaiting action."}`
             : `Routine Action Logged: ${event.name} (${data.triggerReason})`,
           type: data.isDecisionPoint ? "decision" : "action",
-          metadata: { confidence: Math.round(data.confidence * 100), actionType: "rule_extraction" },
+          metadata: {
+            confidence: Math.round(data.confidence * 100),
+            actionType: "rule_extraction",
+          },
         };
 
         const existingIdx = prev.findIndex((item) => item.id === STABLE_AI_EVENT_ID);
@@ -619,12 +636,13 @@ export default function ObservePage() {
         return [...prev, aiItem];
       });
 
-      // 2. Extracted Tribal Knowledge: update if rule is meaningful
       if (data.rule && data.rule !== "Not stated by expert") {
         setHeuristics((prev) => {
           const newHeuristic: HeuristicItem = {
             id: STABLE_HEURISTIC_ID,
-            title: data.isDecisionPoint ? "Source Verification on Large Variance" : "Operational Observation",
+            title: data.isDecisionPoint
+              ? "Source Verification on Large Variance"
+              : "Operational Observation",
             category: "Mental Model",
             description: data.rule,
             detectedAt: now,
@@ -747,1016 +765,742 @@ export default function ObservePage() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Page Header & Live Session Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0E1522]/90 border border-white/10 shadow-xl backdrop-blur-md">
+    <div className="space-y-6 pb-12 bg-grid-pattern -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-full">
+      {/* OBSERVE HEADER */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/[0.08] animate-fade-in-up">
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Passive Expert Observation Mode
-            </h1>
-            <Badge
-              variant={isRecording ? "success" : "warning"}
-              dot
-              className="text-[11px]"
-            >
-              {isRecording ? "Live Recording" : "Paused"}
-            </Badge>
-
-            {/* AI Observer Status Indicator */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 border border-white/10 text-xs">
-              <span className="text-slate-400 text-[11px]">AI Observer:</span>
-              <span className={`font-semibold text-xs flex items-center gap-1.5 ${
-                aiObserverStatus === "Why question ready"
-                  ? "text-accent-cyan"
-                  : aiObserverStatus === "Decision detected"
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${
-                  aiObserverStatus === "Why question ready"
-                    ? "bg-accent-cyan animate-pulse"
-                    : aiObserverStatus === "Decision detected"
-                    ? "bg-amber-400 animate-ping"
-                    : "bg-emerald-400"
-                }`} />
-                {aiObserverStatus}
-              </span>
-            </div>
+          <div className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#646977]">
+            REVENUE ANOMALY INVESTIGATION
           </div>
-          <p className="text-xs text-slate-400">
-            Observing: <span className="text-slate-200 font-medium">Sarah Chen (Senior Data Analyst)</span> • Session: Revenue Anomaly Investigation
-          </p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[#EEEFF2] tracking-tight">
+            Expert Observation
+          </h1>
+          <div className="text-xs text-[#9297A5]">
+            Sarah Chen <span className="text-[#646977]">•</span> Senior Data Analyst
+          </div>
         </div>
 
-        {/* Live Simulation Controls */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 border border-white/10 font-mono text-xs text-slate-300">
-            <Radio className={`w-3.5 h-3.5 ${simState === "running" ? "text-accent-rose animate-pulse" : "text-slate-500"}`} />
-            <span>{simState === "running" || simState === "paused" || simState === "completed" ? `${formatTimer(simSeconds)} / 00:13` : formatTimer(timerSeconds)}</span>
+        {/* Right side: Session State, Timer, and Primary Controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live Recording / Session indicator */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#181A1F] border border-white/[0.08] font-mono text-xs text-[#EEEFF2]">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                simState === "running"
+                  ? "bg-[#EF4444] animate-pulse"
+                  : isRecording
+                  ? "bg-[#34D399] animate-pulse"
+                  : "bg-[#646977]"
+              }`}
+            />
+            <span className="text-[#9297A5]">
+              {simState === "running" || simState === "paused" || simState === "completed"
+                ? `${formatTimer(simSeconds)} / 00:13`
+                : formatTimer(timerSeconds)}
+            </span>
           </div>
 
           {/* Primary Simulation Controls */}
           {simState === "idle" && (
-            <Button
-              variant="glow"
-              size="sm"
+            <button
               onClick={handleStartObservation}
-              className="shadow-brand-500/25"
+              className="bg-[#F5EFE6] text-[#16171B] hover:bg-[#F5EFE6]/90 font-medium px-4 py-1.5 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5 shadow-sm"
             >
-              <Play className="w-3.5 h-3.5 fill-current text-white" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Start Observation</span>
-            </Button>
+            </button>
           )}
 
           {simState === "running" && (
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
               onClick={handlePauseObservation}
+              className="bg-[#1F2127] text-[#EEEFF2] hover:bg-[#292B34] border border-white/[0.08] font-medium px-4 py-1.5 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5"
             >
               <Pause className="w-3.5 h-3.5" />
               <span>Pause</span>
-            </Button>
+            </button>
           )}
 
           {simState === "paused" && (
-            <Button
-              variant="glow"
-              size="sm"
+            <button
               onClick={handleResumeObservation}
+              className="bg-[#F5EFE6] text-[#16171B] hover:bg-[#F5EFE6]/90 font-medium px-4 py-1.5 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5"
             >
-              <Play className="w-3.5 h-3.5 fill-current text-white" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Resume</span>
-            </Button>
+            </button>
           )}
 
           {simState === "completed" && (
-            <Button
-              variant="glow"
-              size="sm"
+            <button
               onClick={handleStartObservation}
+              className="bg-[#F5EFE6] text-[#16171B] hover:bg-[#F5EFE6]/90 font-medium px-4 py-1.5 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Replay Session</span>
-            </Button>
+            </button>
           )}
 
-          {/* Reset Button */}
           {simState !== "idle" && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={handleResetObservation}
+              className="bg-[#1F2127] text-[#9297A5] hover:text-[#EEEFF2] hover:bg-[#292B34] border border-white/[0.08] px-3 py-1.5 rounded-lg text-xs transition-all duration-200 flex items-center gap-1"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset</span>
-            </Button>
+            </button>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddQuickHeuristic}
-            className="hidden sm:inline-flex"
-          >
-            <BookmarkPlus className="w-3.5 h-3.5 text-accent-cyan" />
-            <span>Pin Shortcut</span>
-          </Button>
-
-          <Button
-            variant="glow"
-            size="sm"
-            onClick={() => handleAnalyzeObservation()}
-            isLoading={isAnalyzing}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Analyze Observation</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Verification state and Scenario Test Event selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span>Simulation View:</span>
-            <div className="inline-flex p-0.5 rounded-lg bg-black/40 border border-white/10">
+          {/* Quick Scenario Jump Pills for Testing */}
+          <div className="hidden sm:inline-flex items-center gap-1 p-0.5 rounded-lg bg-[#181A1F] border border-white/[0.08] ml-1">
+            {SCENARIO_EVENTS.map((event) => (
               <button
-                onClick={() => setViewMode("normal")}
-                className={`px-2.5 py-1 rounded text-xs ${
-                  viewMode === "normal" ? "bg-brand-600 text-white font-medium" : "text-slate-400 hover:text-white"
+                key={event.id}
+                onClick={() => {
+                  setSelectedEventId(event.id);
+                  handleAnalyzeObservation(event);
+                }}
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-colors ${
+                  selectedEventId === event.id
+                    ? "bg-[#292B34] text-[#EEEFF2] font-semibold"
+                    : "text-[#9297A5] hover:text-[#EEEFF2]"
                 }`}
+                title={event.name}
               >
-                Active Stream
+                {event.shortLabel}
               </button>
-              <button
-                onClick={() => setViewMode("loading")}
-                className={`px-2.5 py-1 rounded text-xs ${
-                  viewMode === "loading" ? "bg-brand-600 text-white font-medium" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Synthesizing Skeleton
-              </button>
-              <button
-                onClick={() => setViewMode("empty")}
-                className={`px-2.5 py-1 rounded text-xs ${
-                  viewMode === "empty" ? "bg-brand-600 text-white font-medium" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Empty Session
-              </button>
-            </div>
-          </div>
-
-          {/* Test Event Selector for Sarah Chen Scenario */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">Scenario Event:</span>
-            <div className="inline-flex p-0.5 rounded-lg bg-black/40 border border-white/10">
-              {SCENARIO_EVENTS.map((event) => (
-                <button
-                  key={event.id}
-                  onClick={() => {
-                    setSelectedEventId(event.id);
-                    handleAnalyzeObservation(event);
-                  }}
-                  className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                    selectedEventId === event.id
-                      ? "bg-brand-600 text-white font-medium shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                  title={event.name}
-                >
-                  {event.shortLabel}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
+      </header>
 
-        <span className="text-[11px] text-slate-400">
-          Autonomous decision detection &amp; grounded heuristics
-        </span>
-      </div>
-
-      {/* Observation Timeline Bar */}
-      <div className="p-4 rounded-2xl bg-[#0E1522]/90 border border-white/10 shadow-xl backdrop-blur-md space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      {/* CONTINUOUS TIMELINE STEPPER RAIL */}
+      <div className="bg-[#181A1F] border border-white/[0.08] rounded-xl p-3 sm:p-4 space-y-2">
+        <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-accent-cyan" />
-              Continuous Observation Timeline
+            <span className="text-[10.5px] font-mono text-[#646977] uppercase tracking-[0.12em]">
+              TIMELINE SEQUENCE
             </span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
-              simState === "running"
-                ? "bg-brand-500/20 text-brand-300 border-brand-500/40 animate-pulse"
-                : simState === "paused"
-                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                : simState === "completed"
-                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                : "bg-white/5 text-slate-400 border-white/10"
-            }`}>
+            <span
+              className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                simState === "running"
+                  ? "bg-[#38BDF8]/10 text-[#38BDF8] border-[#38BDF8]/20 animate-pulse"
+                  : simState === "completed"
+                  ? "bg-[#34D399]/10 text-[#34D399] border-[#34D399]/20"
+                  : "bg-white/[0.02] text-[#9297A5] border-white/[0.08]"
+              }`}
+            >
               {simState === "running"
-                ? `Playing: ${simSeconds}s / 13s`
-                : simState === "paused"
-                ? `Paused at ${simSeconds}s`
+                ? `Running (${simSeconds}s)`
                 : simState === "completed"
-                ? "Session Completed (13s)"
-                : "Ready to Observe"}
+                ? "Completed"
+                : "Idle"}
             </span>
           </div>
-          <span className="text-[11px] text-slate-400">
-            0s (Looker) &rarr; 4s (18% drop) &rarr; 8s (hold spec) &rarr; 12s (Snowflake SQL) &rarr; 13s (AI Evaluation)
+          <span className="text-[11px] font-mono text-[#646977] hidden sm:inline">
+            0s Looker &rarr; 4s Anomaly &rarr; 8s Hold &rarr; 12s SQL &rarr; 13s AI Synthesis
           </span>
         </div>
 
-        {/* Step Progress Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {TIMELINE_STEPS.map((step, idx) => {
-            const isPast = (simSeconds > step.timeSec && simState !== "idle") || (simState === "completed" && idx <= 4);
+            const isPast =
+              (simSeconds > step.timeSec && simState !== "idle") ||
+              (simState === "completed" && idx <= 4);
             const isCurrent = currentTimelineStepIndex === idx && simState === "running";
+
             return (
               <div
                 key={step.id}
-                className={`p-2.5 rounded-xl border transition-all duration-300 text-xs space-y-1 ${
+                className={`p-2.5 rounded-lg border transition-all duration-200 text-xs ${
                   isCurrent
-                    ? "bg-brand-500/20 border-brand-500/70 shadow-lg shadow-brand-500/20 ring-1 ring-brand-500/50"
+                    ? "bg-[#292B34] border-[#38BDF8]/60 shadow-[0_0_12px_rgba(56,189,248,0.15)] ring-1 ring-[#38BDF8]/40"
                     : isPast
-                    ? "bg-white/[0.03] border-emerald-500/30 text-slate-300"
-                    : "bg-white/[0.01] border-white/5 opacity-50 text-slate-500"
+                    ? "bg-[#1F2127]/60 border-[#34D399]/30 text-[#EEEFF2]"
+                    : "bg-[#181A1F] border-white/[0.05] opacity-60 text-[#646977]"
                 }`}
               >
                 <div className="flex items-center justify-between text-[10px] font-mono">
-                  <span className={isCurrent ? "text-accent-cyan font-bold" : isPast ? "text-emerald-400" : "text-slate-500"}>
+                  <span
+                    className={
+                      isCurrent
+                        ? "text-[#38BDF8] font-bold"
+                        : isPast
+                        ? "text-[#34D399]"
+                        : "text-[#646977]"
+                    }
+                  >
                     {step.timeFormatted}
                   </span>
                   {isCurrent && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-cyan opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-cyan" />
-                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-ping" />
                   )}
                   {isPast && !isCurrent && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <CheckCircle2 className="w-3 h-3 text-[#34D399]" />
                   )}
                 </div>
-                <p className={`font-semibold leading-tight truncate text-xs ${
-                  isCurrent ? "text-white" : isPast ? "text-slate-200" : "text-slate-400"
-                }`}>
+                <div
+                  className={`font-medium truncate text-[12.5px] mt-0.5 ${
+                    isCurrent ? "text-white" : isPast ? "text-[#EEEFF2]" : "text-[#9297A5]"
+                  }`}
+                >
                   {step.title}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {step.targetApp} • {step.aiStatus}
-                </p>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Main Grid: Live Screen/Audio Stream + Deconstructed Stream + Heuristics */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (7 cols): Simulated Video Feed & Live Stream Log */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Simulated Workspace Feed & Voice Visualizer */}
-          <Card className="overflow-hidden">
-            <CardHeader className="py-3 px-4 bg-white/[0.02]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-                  <Monitor className="w-3.5 h-3.5 text-accent-cyan" />
-                  <span>Display Capture 1: {activeScreenFocus === "Looker" ? "Looker Executive Revenue Dashboard" : "Snowflake SQL Console"}</span>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  1080p • 60 FPS
-                </span>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-4 space-y-4">
-              {/* Mock Screen Surface */}
-              <div className="relative rounded-lg overflow-hidden border border-white/10 bg-black/80 aspect-video flex flex-col justify-between p-4">
-                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
-                    <span className="ml-2 text-slate-400">sarah@analytics-workstation: ~/revenue-anomaly</span>
-                  </div>
-                  <Badge variant={activeScreenFocus === "Looker" ? "warning" : "cyan"} className="text-[10px]">
-                    Active Focus: {activeScreenFocus === "Looker" ? "Looker BI Dashboard" : "Snowflake SQL"}
-                  </Badge>
-                </div>
-
-                {activeScreenFocus === "Looker" ? (
-                  <div className="font-mono text-xs text-slate-300 space-y-1 my-auto">
-                    <p className="text-slate-400">-- Sarah Chen: Executive Revenue Overview (EMEA Week-over-Week)</p>
-                    <p className="text-amber-400 font-semibold">Looker Tile: EMEA Weekly Recurring Revenue (7d Trend)</p>
-                    <p className="text-rose-400 font-mono">Variance Detected: -18.2% WoW ($1.42M &rarr; $1.16M)</p>
-                    <p className="text-slate-400">Pipeline Status: Daily Looker sync completed at 06:00 UTC</p>
-                    <p className="text-brand-400 mt-2">
-                      &gt; AI Observer: Monitoring visual anomaly detection and cursor navigation
-                    </p>
-                  </div>
-                ) : (
-                  <div className="font-mono text-xs text-slate-300 space-y-1 my-auto">
-                    <p className="text-slate-400">-- Sarah Chen: Revenue Variance Verification</p>
-                    <p className="text-emerald-400">SELECT date_trunc(&apos;day&apos;, created_at) AS date,</p>
-                    <p className="text-emerald-400">       sum(amount)/100 AS gross_revenue_usd, count(*) AS settled_count</p>
-                    <p className="text-emerald-400">FROM raw_events.stripe_transactions WHERE status = &apos;succeeded&apos;</p>
-                    <p className="text-emerald-400">GROUP BY 1 ORDER BY 1 DESC LIMIT 7;</p>
-                    <p className="text-brand-400 mt-2">
-                      &gt; AI Observer: Bypassed Looker aggregate cache to audit raw Stripe transaction pipeline
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <Volume2 className="w-3.5 h-3.5 text-accent-cyan" />
-                    Microphone Input: Sennheiser Profile (Active)
-                  </span>
-                  <span>Audio Level: -14 dB</span>
-                </div>
-              </div>
-
-              {/* Audio Waveform Stream */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Voice Ambient Stream</span>
-                  <span className="text-[10px] text-accent-cyan">AI Intent Extraction Active</span>
-                </div>
-                <WaveformVisualizer isActive={isRecording && viewMode === "normal"} color="brand" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Live Transcript & Intent Stream */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Deconstructed Action Feed</CardTitle>
-                  <CardDescription>
-                    Real-time transcription and semantic action tags
-                  </CardDescription>
-                </div>
-                <Badge variant="brand" className="text-[10px]">
-                  5 events logged
-                </Badge>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              {viewMode === "loading" ? (
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : viewMode === "empty" ? (
-                <EmptyState
-                  icon={<Eye className="w-6 h-6" />}
-                  title="Awaiting Expert Activity"
-                  description="When the expert begins speaking or executing commands, actions will populate here automatically."
-                />
-              ) : (
-                <div className="divide-y divide-white/5 max-h-[380px] overflow-y-auto">
-                  {transcript.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 flex items-start gap-3 hover:bg-white/[0.01] transition-colors"
-                    >
-                      <span className="text-[10px] font-mono text-slate-400 pt-0.5 whitespace-nowrap">
-                        {item.timestamp}
-                      </span>
-
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs font-semibold ${
-                              item.speaker === "Expert"
-                                ? "text-slate-200"
-                                : item.speaker === "AI Apprentice"
-                                ? "text-accent-cyan"
-                                : "text-amber-400"
-                            }`}
-                          >
-                            {item.speaker}
-                          </span>
-                          <span
-                            className={`text-[9px] uppercase px-1.5 py-0.2 rounded border font-mono ${
-                              item.type === "heuristic"
-                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-                                : item.type === "action"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : item.type === "decision"
-                                ? "bg-brand-500/10 text-brand-400 border-brand-500/20"
-                                : "bg-white/5 text-slate-400 border-white/10"
-                            }`}
-                          >
-                            {item.type}
-                          </span>
-                          {item.metadata?.confidence && (
-                            <span className="text-[10px] text-slate-400">
-                              {item.metadata.confidence}% conf
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-slate-300 leading-relaxed">
-                          {item.content}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column (5 cols): Captured Tribal Heuristics & Shortcuts */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Active Loading Card for Claude Analysis */}
-          {isAnalyzing && (
-            <Card className="border-brand-500/40 p-4 space-y-3 animate-pulse bg-brand-500/5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-brand-300 flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 animate-spin text-accent-cyan" />
-                  Claude Analyzing Expert Action &amp; Transcript...
-                </span>
-                <Badge variant="brand" className="text-[10px]">
-                  Processing
-                </Badge>
-              </div>
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-16 w-full" />
-            </Card>
-          )}
-
-          {/* Analysis Error Alert */}
-          {analysisError && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-400" />
-              <div>
-                <span className="font-semibold block">Analysis Failed:</span>
-                <span>{analysisError}</span>
-              </div>
+      {/* MAIN LAYOUT: 3-COLUMN ASYMMETRIC WORKSPACE (Desktop: 280px left / fluid center / 340px right) */}
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        {/* COLUMN 1 — ACTIVITY STREAM (~280px desktop, stacked on mobile) */}
+        <section
+          aria-label="Activity Stream"
+          className="w-full lg:w-[280px] lg:flex-shrink-0 bg-[#181A1F] border border-white/[0.08] rounded-[10px] p-4 flex flex-col justify-between order-3 lg:order-1"
+        >
+          <div className="space-y-3.5">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+              <span className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#646977]">
+                ACTIVITY STREAM
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase text-[#34D399] bg-[#34D399]/10 border border-[#34D399]/20 px-1.5 py-0.2 rounded">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+                LIVE
+              </span>
             </div>
-          )}
 
-          {/* Live Anthropic Claude Real-time Analysis Card */}
-          {liveAnalysis && (
-            <Card className="border-brand-500/50 bg-gradient-to-b from-[#131B2E] via-[#0E1522] to-[#0A0E17] shadow-2xl shadow-brand-500/10">
-              <CardHeader className="pb-3 border-b border-brand-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-brand-400 animate-pulse" />
-                    <span className="text-xs font-semibold text-white">
-                      Anthropic Claude Analysis
-                    </span>
+            {/* Vertical timeline rail */}
+            <div className="relative border-l border-white/[0.08] ml-2 pl-3.5 space-y-4 max-h-[580px] overflow-y-auto pr-1">
+              {transcript.map((item) => {
+                const isDecision = item.type === "decision";
+                const isHeuristic = item.type === "heuristic";
+
+                return (
+                  <div key={item.id} className="relative group text-xs space-y-1">
+                    {/* Event Dot on rail */}
+                    <span
+                      className={`absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full border border-[#181A1F] ${
+                        isDecision
+                          ? "bg-[#F59E0B] ring-2 ring-[#F59E0B]/30"
+                          : isHeuristic
+                          ? "bg-[#38BDF8] ring-2 ring-[#38BDF8]/30"
+                          : "bg-[#646977]"
+                      }`}
+                    />
+
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-[#646977]">
+                      <span className="text-[#9297A5] font-semibold">{item.speaker}</span>
+                      <span>{item.timestamp}</span>
+                    </div>
+
+                    <p className="text-[12.5px] text-[#EEEFF2] leading-snug">
+                      {item.content}
+                    </p>
+
+                    {item.metadata?.confidence && (
+                      <div className="text-[10.5px] font-mono text-[#38BDF8]">
+                        {item.metadata.confidence}% confidence
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge
-                      variant={liveAnalysis.isDecisionPoint ? "cyan" : "default"}
-                      dot
-                      className="text-[10px]"
-                    >
-                      {liveAnalysis.isDecisionPoint
-                        ? "Decision Point: Yes"
-                        : "Decision Point: No"}
-                    </Badge>
-                    <span className="text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      {Math.round(liveAnalysis.confidence * 100)}% Conf
-                    </span>
-                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-white/[0.05] flex items-center justify-between text-[11px] font-mono text-[#646977]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+              Listening for next action…
+            </span>
+          </div>
+        </section>
+
+        {/* COLUMN 2 — OBSERVED EXPERT WORKSPACE (Fluid center) */}
+        <section
+          aria-label="Observed Expert Workspace"
+          className="w-full lg:flex-1 min-w-0 bg-[#181A1F] border border-white/[0.08] rounded-[10px] overflow-hidden flex flex-col order-2 lg:order-2"
+        >
+          {/* Chrome frame top bar */}
+          <div className="h-10 px-4 bg-[#1F2127] border-b border-white/[0.08] flex items-center justify-between select-none">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#34D399]/80 inline-block" />
+              </div>
+              <span className="text-xs font-mono text-[#9297A5] ml-2">
+                Observed Workspace
+              </span>
+            </div>
+
+            {/* Simulated Tabs: Looker / SQL Console */}
+            <div className="flex items-center gap-1 p-0.5 rounded-md bg-[#131417] border border-white/[0.05]">
+              <button
+                onClick={() => setActiveScreenFocus("Looker")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  activeScreenFocus === "Looker"
+                    ? "bg-[#292B34] text-[#EEEFF2] shadow-sm"
+                    : "text-[#9297A5] hover:text-[#EEEFF2]"
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <span>Looker</span>
+              </button>
+              <button
+                onClick={() => setActiveScreenFocus("Snowflake")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  activeScreenFocus === "Snowflake"
+                    ? "bg-[#292B34] text-[#EEEFF2] shadow-sm"
+                    : "text-[#9297A5] hover:text-[#EEEFF2]"
+                }`}
+              >
+                <Database className="w-3.5 h-3.5 text-[#38BDF8]" />
+                <span>SQL Console</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Workspace Body with 28px coordinate grid texture */}
+          <div className="p-5 space-y-4 bg-grid-pattern min-h-[380px] flex flex-col justify-between">
+            {activeScreenFocus === "Looker" ? (
+              /* Looker Simulated Surface */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-[#9297A5] font-mono border-b border-white/[0.05] pb-2">
+                  <span>Looker / EMEA Recurring Revenue Executive Overview</span>
+                  <span className="text-[#34D399]">Data Freshness: 06:00 UTC Batch</span>
                 </div>
 
-                {/* Extracted Rule & Evidence */}
-                <div className="mt-2 space-y-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-cyan block">
-                    Extracted Operational Rule
-                  </span>
-                  <CardTitle className="text-sm text-slate-100 leading-snug">
-                    {liveAnalysis.rule}
-                  </CardTitle>
-                  <div className="p-2 rounded bg-black/40 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-start gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-400" />
-                    <span>
-                      <strong className="text-emerald-200">Source Evidence:</strong> &quot;{liveAnalysis.ruleEvidence}&quot;
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-3.5 pt-3 text-xs">
-                {/* 1. Explicit Expert Knowledge */}
-                {liveAnalysis.explicitKnowledge && liveAnalysis.explicitKnowledge.length > 0 && (
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider block">
-                      Explicit Expert Knowledge (Directly Stated)
-                    </span>
-                    <div className="space-y-1.5">
-                      {liveAnalysis.explicitKnowledge.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-0.5"
-                        >
-                          <p className="text-slate-200 font-medium text-xs">
-                            {item.item}
-                          </p>
-                          <p className="text-[11px] text-slate-400 italic">
-                            Evidence: &quot;{item.sourceSentence}&quot;
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Reasonable Inferences */}
-                {liveAnalysis.reasonableInferences && liveAnalysis.reasonableInferences.length > 0 && (
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-semibold text-accent-cyan uppercase tracking-wider block">
-                      Reasonable Inferences (Grounded in Action)
-                    </span>
-                    <div className="space-y-1.5">
-                      {liveAnalysis.reasonableInferences.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2 rounded-lg bg-cyan-500/5 border border-cyan-500/20 space-y-0.5"
-                        >
-                          <p className="text-slate-200 font-medium text-xs">
-                            {item.inference}
-                          </p>
-                          <p className="text-[11px] text-slate-400 italic">
-                            Grounded in: &quot;{item.groundedIn}&quot;
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Exception & Guardrail Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-1">
-                    <div className="flex items-center gap-1.5 text-amber-400 text-[11px] font-semibold">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <span>Exception</span>
-                    </div>
-                    <p className="text-xs text-slate-200 font-medium">
-                      {liveAnalysis.exception}
-                    </p>
-                    <p className="text-[10px] text-slate-400 italic">
-                      Source: &quot;{liveAnalysis.exceptionEvidence}&quot;
-                    </p>
+                {/* Simulated Revenue KPI Tiles */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-lg bg-[#1F2127] border border-white/[0.08] space-y-1">
+                    <span className="text-xs text-[#9297A5]">Global Weekly ARR</span>
+                    <div className="font-mono text-xl font-semibold text-[#EEEFF2]">$8.42M</div>
+                    <span className="text-[10.5px] font-mono text-[#34D399]">+2.4% WoW</span>
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 space-y-1">
-                    <div className="flex items-center gap-1.5 text-rose-400 text-[11px] font-semibold">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Guardrail</span>
-                    </div>
-                    <p className="text-xs text-slate-200 font-medium">
-                      {liveAnalysis.guardrail}
-                    </p>
-                    <p className="text-[10px] text-slate-400 italic">
-                      Source: &quot;{liveAnalysis.guardrailEvidence}&quot;
-                    </p>
-                  </div>
-                </div>
-
-                {/* 4. Unknown / Not Stated by Expert */}
-                {liveAnalysis.unknownOrNotStated && liveAnalysis.unknownOrNotStated.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Unknown / Not Stated by Expert
-                    </span>
-                    <ul className="p-2.5 rounded-lg bg-black/30 border border-white/5 space-y-1 text-[11px] text-slate-400">
-                      {liveAnalysis.unknownOrNotStated.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-slate-500 leading-none mt-1">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* 5. Targeted "Why" Question / Autonomous Decision Point */}
-                {liveAnalysis.whyQuestion && liveAnalysis.whyQuestion !== "Not stated by expert" && (
+                  {/* Anomaly Highlighting Card */}
                   <div
-                    className={`p-3.5 rounded-xl border space-y-3 transition-all duration-300 ${
-                      liveAnalysis.shouldAskWhy
-                        ? "bg-gradient-to-r from-amber-500/15 via-brand-500/10 to-emerald-500/10 border-amber-500/50 shadow-xl shadow-amber-500/10 ring-1 ring-amber-500/30"
-                        : "bg-brand-500/10 border-brand-500/30"
+                    className={`p-3.5 rounded-lg border transition-all duration-300 space-y-1 ${
+                      simSeconds >= 4
+                        ? "bg-[#EF4444]/10 border-[#EF4444]/40 shadow-lg shadow-[#EF4444]/10 ring-1 ring-[#EF4444]/30"
+                        : "bg-[#1F2127] border-white/[0.08]"
                     }`}
                   >
-                    {/* Visual Highlight Banner when shouldAskWhy = true */}
-                    {liveAnalysis.shouldAskWhy && (
-                      <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
-                        <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs tracking-wide">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                          </span>
-                          <span>AI detected a decision point</span>
-                        </div>
-                        <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border ${
-                          liveAnalysis.questionPriority === "high"
-                            ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                            : liveAnalysis.questionPriority === "medium"
-                            ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                            : "bg-slate-500/10 text-slate-400 border-slate-500/30"
-                        }`}>
-                          {liveAnalysis.questionPriority} priority
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                        <HelpCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                          liveAnalysis.shouldAskWhy ? "text-amber-400" : "text-brand-400"
-                        }`} />
-                        <div>
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider block ${
-                            liveAnalysis.shouldAskWhy ? "text-amber-300" : "text-brand-300"
-                          }`}>
-                            Targeted &quot;Why&quot; Question (For Expert Probe)
-                          </span>
-                          <p className="text-xs text-slate-100 mt-0.5 leading-relaxed font-medium">
-                            &quot;{liveAnalysis.whyQuestion}&quot;
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-start sm:self-center flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleSpeakWhyQuestion}
-                          disabled={voiceStatus === "generating" || voiceStatus === "playing"}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5 shadow-sm border ${
-                            voiceStatus === "generating"
-                              ? "bg-brand-500/20 text-brand-200 border-brand-500/40 cursor-wait"
-                              : voiceStatus === "playing"
-                              ? "bg-emerald-500/20 text-emerald-200 border-emerald-500/40 animate-pulse cursor-default"
-                              : voiceStatus === "error"
-                              ? "bg-rose-500/20 text-rose-200 border-rose-500/40 hover:bg-rose-500/30 cursor-pointer"
-                              : "bg-brand-600 hover:bg-brand-500 text-white border-brand-500 hover:shadow-brand-500/25 cursor-pointer"
-                          }`}
-                        >
-                          {voiceStatus === "generating" && (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-300" />
-                              <span>Generating...</span>
-                            </>
-                          )}
-                          {voiceStatus === "playing" && (
-                            <>
-                              <Volume2 className="w-3.5 h-3.5 animate-bounce text-emerald-400" />
-                              <span>Playing...</span>
-                            </>
-                          )}
-                          {voiceStatus === "error" && (
-                            <>
-                              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                              <span>Error</span>
-                            </>
-                          )}
-                          {voiceStatus === "idle" && (
-                            <>
-                              <span>🔊</span>
-                              <span>Ask the Expert</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Compact trigger reason */}
-                    {liveAnalysis.triggerReason && (
-                      <div className="px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-[11px] text-slate-300 flex items-start gap-2">
-                        <span className="text-amber-400 font-semibold whitespace-nowrap text-[10px] uppercase tracking-wider mt-0.5">
-                          Trigger Reason:
-                        </span>
-                        <span className="leading-snug text-slate-300">
-                          {liveAnalysis.triggerReason}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Microphone Control Below Targeted Why Question */}
-                    <div className="pt-2.5 border-t border-brand-500/20 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-slate-300">
-                            Expert Response:
-                          </span>
-                          {micStatus === "ready" && (
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              Ready
-                            </span>
-                          )}
-                          {micStatus === "recording" && (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-[10px] font-semibold text-rose-300 animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
-                              Recording: {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
-                            </span>
-                          )}
-                          {micStatus === "transcribing" && (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-500/20 border border-brand-500/40 text-[10px] font-medium text-brand-300">
-                              <Loader2 className="w-3 h-3 animate-spin text-brand-400" />
-                              Transcribing...
-                            </span>
-                          )}
-                          {micStatus === "complete" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-medium text-emerald-300">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Complete
-                            </span>
-                          )}
-                          {micStatus === "error" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-[10px] font-medium text-rose-300">
-                              <AlertCircle className="w-3 h-3" />
-                              Error
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {(micStatus === "ready" || micStatus === "complete") && (
-                            <button
-                              type="button"
-                              onClick={startRecording}
-                              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                            >
-                              <Mic className="w-3.5 h-3.5" />
-                              <span>🎙 Answer</span>
-                            </button>
-                          )}
-
-                          {micStatus === "recording" && (
-                            <button
-                              type="button"
-                              onClick={stopRecording}
-                              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse"
-                            >
-                              <Square className="w-3 h-3 fill-current" />
-                              <span>Stop</span>
-                            </button>
-                          )}
-
-                          {micStatus === "error" && (
-                            <button
-                              type="button"
-                              onClick={startRecording}
-                              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 transition-all cursor-pointer"
-                            >
-                              <Mic className="w-3.5 h-3.5" />
-                              <span>Retry 🎙 Answer</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {micError && (
-                        <p className="text-[11px] text-rose-400 mt-1">
-                          {micError}
-                        </p>
-                      )}
-
-                      {/* Transcribed Text Display */}
-                      {expertResponse && (
-                        <div className="mt-2 p-2.5 rounded-lg bg-black/40 border border-white/10 space-y-2">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-semibold text-accent-cyan uppercase tracking-wider">
-                              Expert Response
-                            </span>
-                            <span className="text-slate-400">
-                              ElevenLabs (scribe_v2)
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-200 italic font-medium leading-relaxed">
-                            &quot;{expertResponse}&quot;
-                          </p>
-
-                          <div className="pt-1 flex items-center justify-between gap-2">
-                            <Button
-                              size="sm"
-                              variant="glow"
-                              onClick={handleAnalyzeExpertResponse}
-                              disabled={isAnalyzingResponse}
-                              className="text-xs h-7 px-3"
-                            >
-                              {isAnalyzingResponse ? (
-                                <>
-                                  <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
-                                  <span>Analyzing Expert Response...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-3 h-3 mr-1.5" />
-                                  <span>Analyze Expert Response</span>
-                                </>
-                              )}
-                            </Button>
-
-                            <button
-                              type="button"
-                              onClick={handleResetRecording}
-                              className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Expert Response Analysis Result from Claude */}
-                      {liveAnalysis.expertResponseAnalysis && (
-                        <div className="mt-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant={
-                                  liveAnalysis.expertResponseAnalysis.revealedCategory === "no_new_knowledge"
-                                    ? "default"
-                                    : "success"
-                                }
-                                dot
-                              >
-                                {liveAnalysis.expertResponseAnalysis.revealedCategoryLabel}
-                              </Badge>
-                              <span className="text-[11px] font-semibold text-emerald-300">
-                                Tacit Nuance Extracted
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                            {liveAnalysis.expertResponseAnalysis.summary}
-                          </p>
-                          {liveAnalysis.expertResponseAnalysis.groundedEvidence && (
-                            <p className="text-[11px] text-slate-400 italic">
-                              Evidence: {liveAnalysis.expertResponseAnalysis.groundedEvidence}
-                            </p>
-                          )}
-
-                          <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between">
-                            <span className="text-[10px] text-emerald-400 font-medium">
-                              ✓ Synchronized to Shared Work Map Session
-                            </span>
-                            <Link
-                              href="/work-map"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold transition-all"
-                            >
-                              <span>Inspect in Work Map</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </Link>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* When autonomous probe was not triggered, display clear compact status */}
-                {!liveAnalysis.shouldAskWhy && (
-                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                          liveAnalysis.isDecisionPoint ? "bg-amber-400 animate-ping" : "bg-emerald-400"
-                        }`} />
-                        <span className="text-[11px] font-semibold text-slate-200">
-                          {liveAnalysis.isDecisionPoint ? "Decision Detected (Passive Monitoring)" : "Routine Operational Action"}
+                      <span className="text-xs text-[#9297A5]">EMEA Weekly ARR</span>
+                      {simSeconds >= 4 && (
+                        <span className="text-[10px] font-mono uppercase bg-[#EF4444]/20 text-[#EF4444] px-1.5 py-0.2 rounded border border-[#EF4444]/30 animate-pulse">
+                          ANOMALY
                         </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                        Autonomous Probe Not Triggered
-                      </span>
+                      )}
                     </div>
+                    <div className="font-mono text-xl font-semibold text-[#EEEFF2]">$1.16M</div>
+                    <span className="text-[10.5px] font-mono text-[#EF4444] font-semibold">
+                      -18.2% WoW ($1.42M &rarr; $1.16M)
+                    </span>
+                  </div>
 
-                    {liveAnalysis.triggerReason && (
-                      <div className="px-2.5 py-1.5 rounded-lg bg-black/30 border border-white/5 text-[11px] text-slate-300 flex items-start gap-2">
-                        <span className="text-slate-400 font-medium whitespace-nowrap text-[10px] uppercase tracking-wider mt-0.5">
-                          Trigger Reason:
-                        </span>
-                        <span className="leading-snug text-slate-300">
-                          {liveAnalysis.triggerReason}
-                        </span>
-                      </div>
+                  <div className="p-3.5 rounded-lg bg-[#1F2127] border border-white/[0.08] space-y-1">
+                    <span className="text-xs text-[#9297A5]">US Weekly ARR</span>
+                    <div className="font-mono text-xl font-semibold text-[#EEEFF2]">$5.84M</div>
+                    <span className="text-[10.5px] font-mono text-[#34D399]">+3.1% WoW</span>
+                  </div>
+                </div>
+
+                {/* Anomaly Callout Box */}
+                <div className="p-3.5 rounded-lg bg-[#1F2127]/80 border border-white/[0.08] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-[#EEEFF2] flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-[#F59E0B]" />
+                      Observed Expert Behavior:
+                    </span>
+                    <span className="font-mono text-[10.5px] text-[#38BDF8]">
+                      Timestamp 05:14
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#9297A5] leading-relaxed">
+                    Sarah detected the 18% discrepancy on the EMEA overview chart. Rather than
+                    submitting an immediate executive alert or querying marketing churn, she holds
+                    inquiry and opens Snowflake to inspect raw transaction events.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Snowflake SQL Console Surface */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-[#9297A5] font-mono border-b border-white/[0.05] pb-2">
+                  <span>Snowflake / raw_events.stripe_transactions</span>
+                  <span className="text-[#38BDF8]">Direct Pipeline Query</span>
+                </div>
+
+                <div className="p-4 rounded-lg bg-[#131417] border border-white/[0.08] font-mono text-xs text-[#38BDF8] space-y-1">
+                  <p className="text-[#646977]">-- Sarah Chen: Direct Raw Ledger Audit</p>
+                  <p className="text-[#EEEFF2]">SELECT date_trunc(&apos;day&apos;, created_at) AS date,</p>
+                  <p className="text-[#EEEFF2]">
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sum(amount)/100 AS gross_revenue_usd,
+                    count(*) AS settled_count
+                  </p>
+                  <p className="text-[#EEEFF2]">
+                    FROM raw_events.stripe_transactions WHERE status = &apos;succeeded&apos;
+                  </p>
+                  <p className="text-[#EEEFF2]">GROUP BY 1 ORDER BY 1 DESC LIMIT 7;</p>
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[#1F2127]/80 border border-white/[0.08] space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#34D399]">
+                      ✓ Raw Ledger Returned 1,842 Transactions
+                    </span>
+                    <span className="font-mono text-[10.5px] text-[#9297A5]">Duration: 412ms</span>
+                  </div>
+                  <p className="text-[12px] text-[#9297A5]">
+                    Raw transaction count confirms settled payments match expected baseline.
+                    The 18% discrepancy was caused by an upstream Looker dashboard batch lag,
+                    validating Sarah&apos;s heuristic: &quot;Always inspect raw transaction events before
+                    raising any alert.&quot;
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Audio Waveform Stream at Bottom of Workspace */}
+            <div className="pt-3 border-t border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono text-[#9297A5]">
+                <span className="flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-[#38BDF8]" />
+                  Microphone Input: Sennheiser Profile (Active)
+                </span>
+                <span className="text-[#34D399] font-mono text-[10.5px]">AI Intent Tracking</span>
+              </div>
+              <WaveformVisualizer
+                isActive={simState === "running" || isRecording}
+                color="brand"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* COLUMN 3 — AI OBSERVER (~340px desktop, top priority on mobile) */}
+        <section
+          aria-label="AI Observer Panel"
+          className="w-full lg:w-[340px] lg:flex-shrink-0 bg-[#181A1F] border border-white/[0.08] rounded-[10px] p-4 sm:p-5 flex flex-col justify-between order-1 lg:order-3 space-y-4"
+        >
+          <div className="space-y-4">
+            {/* Header with 3-step state indicator */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+                <h2 className="text-[15px] font-semibold text-[#EEEFF2] tracking-tight">
+                  AI Observer
+                </h2>
+              </div>
+
+              {/* 3-Step State Indicator */}
+              <div className="flex items-center gap-1">
+                <span
+                  title="Step 1: Observing"
+                  className={`w-2 h-2 rounded-full ${
+                    aiObserverStatus === "Observing"
+                      ? "bg-[#38BDF8] ring-2 ring-[#38BDF8]/40"
+                      : "bg-[#34D399]"
+                  }`}
+                />
+                <span className="w-3 h-[1px] bg-white/[0.1]" />
+                <span
+                  title="Step 2: Decision Detected"
+                  className={`w-2 h-2 rounded-full ${
+                    aiObserverStatus === "Decision detected"
+                      ? "bg-[#F59E0B] ring-2 ring-[#F59E0B]/40 animate-pulse"
+                      : aiObserverStatus === "Why question ready"
+                      ? "bg-[#34D399]"
+                      : "bg-[#646977]"
+                  }`}
+                />
+                <span className="w-3 h-[1px] bg-white/[0.1]" />
+                <span
+                  title="Step 3: Why Question Ready"
+                  className={`w-2 h-2 rounded-full ${
+                    aiObserverStatus === "Why question ready"
+                      ? "bg-[#38BDF8] ring-2 ring-[#38BDF8]/40 animate-pulse"
+                      : "bg-[#646977]"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* STATE 0: Observing (No question) */}
+            {aiObserverStatus === "Observing" && (
+              <div className="p-3.5 rounded-lg bg-[#1F2127] border border-white/[0.08] space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#38BDF8]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+                  <span>Passively Observing Expert</span>
+                </div>
+                <p className="text-xs text-[#9297A5] leading-relaxed">
+                  AI Apprentice is actively monitoring Sarah&apos;s cursor movements, tool switches, and
+                  audio stream. When an unwritten heuristic or decision pivot occurs, the observer
+                  flags it.
+                </p>
+              </div>
+            )}
+
+            {/* STATE 1: Decision Detected (Amber highlighted card) */}
+            {aiObserverStatus === "Decision detected" && (
+              <div className="p-3.5 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/30 space-y-2 animate-fade-in-up">
+                <div className="flex items-center gap-2 text-[11px] font-mono font-semibold text-[#F59E0B] uppercase tracking-wider">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>AI DETECTED A DECISION POINT</span>
+                </div>
+                <p className="text-xs text-[#EEEFF2] leading-relaxed font-medium">
+                  {liveAnalysis?.triggerReason ||
+                    "Sarah observed an 18% revenue discrepancy and bypassed executive churn escalation to query raw transaction events directly in Snowflake."}
+                </p>
+                <div className="text-[10.5px] font-mono text-[#9297A5] pt-1">
+                  Synthesizing probe question with Claude...
+                </div>
+              </div>
+            )}
+
+            {/* STATE 2: Why Question Ready (High-emphasis question card) */}
+            {aiObserverStatus === "Why question ready" && liveAnalysis?.whyQuestion && (
+              <div className="p-4 rounded-xl bg-[#1F2127] border border-[#38BDF8]/40 space-y-3.5 shadow-lg shadow-[#38BDF8]/5 animate-fade-in-up">
+                <div className="flex items-center justify-between pb-1 border-b border-white/[0.05]">
+                  <span className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#38BDF8] font-semibold">
+                    TARGETED WHY QUESTION
+                  </span>
+                  <span
+                    className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
+                      liveAnalysis.questionPriority === "high"
+                        ? "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20"
+                        : "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20"
+                    }`}
+                  >
+                    {liveAnalysis.questionPriority} priority
+                  </span>
+                </div>
+
+                <p className="text-[14.5px] font-semibold text-[#EEEFF2] leading-snug">
+                  &quot;{liveAnalysis.whyQuestion}&quot;
+                </p>
+
+                {/* Primary Ivory CTA: Ask the Expert (TTS) & Secondary: Answer (Mic) */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSpeakWhyQuestion}
+                    disabled={voiceStatus === "generating" || voiceStatus === "playing"}
+                    className="flex-1 bg-[#F5EFE6] text-[#16171B] hover:bg-[#F5EFE6]/90 font-medium py-2 px-3 rounded-lg text-xs transition-all duration-200 flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    {voiceStatus === "generating" ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Speaking...</span>
+                      </>
+                    ) : voiceStatus === "playing" ? (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 animate-bounce text-[#16171B]" />
+                        <span>Playing Voice</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5" />
+                        <span>Ask the Expert</span>
+                      </>
                     )}
+                  </button>
+
+                  {(micStatus === "ready" || micStatus === "complete") && (
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      className="bg-[#1F2127] text-[#EEEFF2] hover:bg-[#292B34] border border-white/[0.08] font-medium py-2 px-3 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5"
+                    >
+                      <Mic className="w-3.5 h-3.5 text-[#38BDF8]" />
+                      <span>🎙 Answer</span>
+                    </button>
+                  )}
+
+                  {micStatus === "recording" && (
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="bg-[#EF4444] text-white hover:bg-[#EF4444]/90 font-medium py-2 px-3 rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5 animate-pulse"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Trigger Reason & Confidence & Evidence */}
+                <div className="pt-2 border-t border-white/[0.05] space-y-2 text-xs">
+                  {liveAnalysis.triggerReason && (
+                    <div>
+                      <span className="text-[10px] font-mono uppercase text-[#646977] block">
+                        TRIGGER REASON
+                      </span>
+                      <p className="text-[12px] text-[#9297A5] mt-0.5">
+                        {liveAnalysis.triggerReason}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-[#646977]">
+                      CONFIDENCE
+                    </span>
+                    <span className="font-mono text-xs text-[#38BDF8] font-semibold">
+                      {Math.round(liveAnalysis.confidence * 100)}%
+                    </span>
+                  </div>
+
+                  {liveAnalysis.ruleEvidence && (
+                    <div>
+                      <span className="text-[10px] font-mono uppercase text-[#646977] block">
+                        EVIDENCE
+                      </span>
+                      <p className="text-[11.5px] text-[#9297A5] italic mt-0.5">
+                        &quot;{liveAnalysis.ruleEvidence}&quot;
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Microphone Recording Status & Transcription */}
+                {micStatus === "recording" && (
+                  <div className="p-3 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/30 flex items-center justify-between text-xs text-[#EF4444] animate-pulse font-mono">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-ping" />
+                      Recording Answer...
+                    </span>
+                    <span>{formatTimer(recordingSeconds)}</span>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
 
-          <Card className="border-accent-cyan/20">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Badge variant="cyan" dot>
-                  Tacit Heuristics
-                </Badge>
-                <span className="text-[11px] text-slate-400">
-                  {heuristics.length} Extracted
-                </span>
-              </div>
-              <CardTitle className="mt-2 text-base">
-                Extracted Tribal Knowledge
-              </CardTitle>
-              <CardDescription>
-                Nuances and unwritten heuristics identified from the expert&apos;s behavior.
-              </CardDescription>
-            </CardHeader>
+                {micStatus === "transcribing" && (
+                  <div className="p-3 rounded-lg bg-[#38BDF8]/10 border border-[#38BDF8]/30 flex items-center gap-2 text-xs text-[#38BDF8] font-mono">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transcribing with ElevenLabs scribe_v2...</span>
+                  </div>
+                )}
 
-            <CardContent className="space-y-3 pt-0">
-              {viewMode === "loading" ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                </div>
-              ) : viewMode === "empty" ? (
-                <EmptyState
-                  icon={<Sparkles className="w-6 h-6" />}
-                  title="No Heuristics Captured"
-                  description="As the AI Apprentice observes key decision pivots, tacit knowledge will be distilled here."
-                />
-              ) : (
-                heuristics.map((h) => (
-                  <div
-                    key={h.id}
-                    className="p-3.5 rounded-xl bg-surface-100/70 border border-white/5 hover:border-accent-cyan/30 transition-all space-y-2 group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-semibold text-white group-hover:text-accent-cyan transition-colors">
-                        {h.title}
-                      </h4>
-                      <Badge
-                        variant={
-                          h.category === "Shortcut"
-                            ? "cyan"
-                            : h.category === "Mental Model"
-                            ? "brand"
-                            : "warning"
-                        }
-                        className="text-[9px] px-1.5 py-0"
-                      >
-                        {h.category}
-                      </Badge>
+                {micError && (
+                  <p className="text-xs text-[#EF4444] font-medium">{micError}</p>
+                )}
+
+                {/* Expert Response Transcription Card */}
+                {expertResponse && (
+                  <div className="p-3.5 rounded-lg bg-[#1F2127] border border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between text-[10.5px] font-mono">
+                      <span className="text-[#38BDF8] font-semibold uppercase">
+                        EXPERT RESPONSE
+                      </span>
+                      <span className="text-[#646977]">ElevenLabs</span>
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      {h.description}
+                    <p className="text-xs text-[#EEEFF2] italic font-medium leading-relaxed">
+                      &quot;{expertResponse}&quot;
                     </p>
 
-                    <div className="pt-1.5 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="font-mono">Detected at {h.detectedAt}</span>
-                      <span className="text-emerald-400 font-medium">
-                        {h.confidence}% confidence
-                      </span>
+                    <div className="pt-2 flex items-center justify-between gap-2 border-t border-white/[0.05]">
+                      <button
+                        onClick={handleAnalyzeExpertResponse}
+                        disabled={isAnalyzingResponse}
+                        className="bg-[#38BDF8]/10 hover:bg-[#38BDF8]/20 text-[#38BDF8] border border-[#38BDF8]/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                      >
+                        {isAnalyzingResponse ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Analyzing with Claude...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Analyze Expert Response</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleResetRecording}
+                        className="text-[11px] font-mono text-[#646977] hover:text-[#EEEFF2] underline"
+                      >
+                        Clear
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                )}
 
-          {/* SOP Synthesis Readiness Card */}
-          <Card className="bg-gradient-to-br from-[#0F172A] to-[#0A0E17]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Synthesize into Work Map</CardTitle>
-              <CardDescription>
-                Convert this session&apos;s heuristics into an interactive SOP decision tree.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div className="p-3 rounded-lg bg-black/30 border border-white/5 space-y-1.5 text-xs text-slate-300">
-                <div className="flex justify-between">
-                  <span>Extracted Steps:</span>
-                  <span className="font-semibold text-white">5 nodes</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Decision Points:</span>
-                  <span className="font-semibold text-white">2 branches</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Model Engine:</span>
-                  <span className="font-semibold text-brand-400">Claude 3.5 Sonnet</span>
-                </div>
+                {/* Expert Response Analysis Result from Claude */}
+                {liveAnalysis.expertResponseAnalysis && (
+                  <div className="p-3 rounded-lg bg-[#34D399]/10 border border-[#34D399]/30 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#34D399] font-semibold">
+                        {liveAnalysis.expertResponseAnalysis.revealedCategoryLabel}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#34D399]">✓ Captured</span>
+                    </div>
+
+                    <p className="text-[#EEEFF2] font-medium leading-relaxed">
+                      {liveAnalysis.expertResponseAnalysis.summary}
+                    </p>
+
+                    <div className="pt-2 flex items-center justify-between border-t border-[#34D399]/20">
+                      <span className="text-[10.5px] font-mono text-[#646977]">
+                        Added to Work Map
+                      </span>
+                      <Link
+                        href="/work-map"
+                        className="text-xs font-mono text-[#34D399] hover:underline flex items-center gap-1"
+                      >
+                        <span>View Work Map</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Extracted Tribal Knowledge Card */}
+            <div className="p-3.5 rounded-lg bg-[#1F2127]/60 border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[10.5px] font-mono uppercase tracking-[0.12em] text-[#646977]">
+                  CAPTURED HEURISTICS
+                </span>
+                <span className="font-mono text-xs text-[#38BDF8]">
+                  {heuristics.length} rules
+                </span>
               </div>
 
-              <Link href="/work-map" className="block w-full">
-                <Button variant="glow" size="sm" className="w-full">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Compile into Work Map</span>
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                {heuristics.map((h) => (
+                  <div
+                    key={h.id}
+                    className="p-2 rounded bg-[#181A1F] border border-white/[0.05] text-xs space-y-0.5"
+                  >
+                    <div className="font-medium text-[#EEEFF2] truncate">{h.title}</div>
+                    <div className="text-[11px] text-[#9297A5] line-clamp-1">
+                      {h.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Work Map Link at Bottom of Column 3 */}
+          <div className="pt-3 border-t border-white/[0.08]">
+            <Link href="/work-map" className="block w-full">
+              <button className="w-full bg-[#1F2127] hover:bg-[#292B34] text-[#EEEFF2] border border-white/[0.08] font-medium py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all">
+                <Sparkles className="w-3.5 h-3.5 text-[#38BDF8]" />
+                <span>Open Work Map Graph</span>
+              </button>
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

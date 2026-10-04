@@ -3,16 +3,40 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #090D16;
-  --color-surface: #0E1522;
-  --color-brand: #6366f1;
+  --color-bg: #131417;
+  --color-surface: #181A1F;
+  --color-brand: #38BDF8;
 }
 
 body {
   background-color: var(--color-bg);
-  color: #f1f5f9;
+  color: #EEEFF2;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   overflow-x: hidden;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 28px coordinate grid pattern with restrained radial fade */
+.bg-grid-pattern {
+  background-image:
+    radial-gradient(ellipse 65% 45% at 12% 8%, rgba(56, 189, 248, 0.045), transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px, 28px 28px;
 }
 
 /* Custom modern subtle dark scrollbar */

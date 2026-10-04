@@ -22,9 +22,11 @@ import {
   SlidersHorizontal,
   Quote,
   Eye,
+  X,
+  ChevronRight,
+  Check,
+  ShieldAlert,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
@@ -69,7 +71,7 @@ function getFieldClassification(
     return {
       type: "UNKNOWN",
       label: "UNKNOWN",
-      badgeClass: "bg-slate-800 text-slate-400 border-slate-700/60",
+      badgeClass: "bg-[#1F2127] text-[#9297A5] border-white/[0.08]",
       description: "Not stated by expert during observation session",
     };
   }
@@ -86,7 +88,7 @@ function getFieldClassification(
     return {
       type: "EXPLICIT",
       label: "EXPLICIT",
-      badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-xs",
+      badgeClass: "bg-[#34D399]/15 text-[#34D399] border-[#34D399]/30",
       description: "Directly stated by expert in recording or live probe response",
     };
   }
@@ -94,7 +96,7 @@ function getFieldClassification(
   return {
     type: "INFERRED",
     label: "INFERRED",
-    badgeClass: "bg-cyan-500/15 text-cyan-300 border-cyan-500/40 shadow-xs",
+    badgeClass: "bg-[#38BDF8]/15 text-[#38BDF8] border-[#38BDF8]/30",
     description: "Model interpretation grounded in observed action or operational context",
   };
 }
@@ -124,6 +126,7 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
   const [sessionData, setSessionData] = useState<WorkMapSessionData>(initialSession);
   const [selectedDecisionId, setSelectedDecisionId] = useState<string>("dt-large-variance-ledger");
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
 
   const fetchSessionData = async () => {
     try {
@@ -217,9 +220,10 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
       if (typeof k.confidence === "number") confidences.push(k.confidence);
     });
 
-    const avgConfidence = confidences.length > 0
-      ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
-      : 96;
+    const avgConfidence =
+      confidences.length > 0
+        ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
+        : 96;
 
     return {
       decisionsCaptured: decisionsCount,
@@ -264,7 +268,7 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
 
     if (id === "dt-decision-threshold") {
       return {
-        decision: node?.title || "Decision Point: Variance Magnitude Evaluation",
+        decision: node?.title || "Variance Magnitude Check: Tolerance Evaluation",
         triggerCondition: "Incoming revenue drop alert flagged on Looker executive dashboard",
         whyItMatters:
           WHY_DECISION_MATTERS[id] ||
@@ -360,6 +364,11 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
     };
   }, [selectedDecisionNode, sessionData]);
 
+  const handleSelectNode = (id: string) => {
+    setSelectedDecisionId(id);
+    setIsDrawerOpen(true);
+  };
+
   const getNodeTypeBadge = (type: WorkMapNode["type"]) => {
     switch (type) {
       case "trigger":
@@ -378,858 +387,573 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
   };
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
-      {/* 1. Header & Navigation Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0B0F17]/95 border border-white/10 shadow-xl backdrop-blur-md">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              AI Knowledge Map &amp; Decision Architecture
+    <div className="space-y-6 pb-16 bg-grid-pattern -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-screen text-[#EEEFF2] relative">
+      {/* ═══════════════════════════════════════════════════════════════
+          1. PAGE HEADER & COMPACT SESSION INDICATORS
+          ═══════════════════════════════════════════════════════════════ */}
+      <header className="space-y-4 pb-4 border-b border-white/[0.08] animate-fade-in-up">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-[#646977] flex items-center gap-2">
+              <span>CAPTURED EXPERT KNOWLEDGE</span>
+              {hasNewKnowledge && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#34D399]/15 border border-[#34D399]/40 text-[9.5px] font-mono font-semibold text-[#34D399]">
+                  <Sparkles className="w-2.5 h-2.5 text-[#34D399]" />
+                  NEW KNOWLEDGE
+                </span>
+              )}
+            </div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-[#EEEFF2] tracking-tight">
+              Expert Work Map
             </h1>
-            <Badge variant="brand" className="text-[11px] font-mono">
-              Elicited Knowledge Graph
-            </Badge>
-            {hasNewKnowledge && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-[10px] font-bold text-emerald-300">
-                <Sparkles className="w-3 h-3 text-emerald-400" />
-                NEW KNOWLEDGE CAPTURED
+            <p className="text-xs text-[#9297A5]">
+              Decision workflow compiled from <strong>{sessionData.expert}</strong>&apos;s observation session
+            </p>
+          </div>
+
+          {/* Controls & Nav */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <button
+              onClick={fetchSessionData}
+              title="Refresh session data"
+              className="p-2 rounded-lg bg-[#181A1F] border border-white/[0.08] hover:bg-[#292B34] text-[#9297A5] hover:text-[#EEEFF2] transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSession ? "animate-spin" : ""}`} />
+            </button>
+
+            <Link href="/observe">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#181A1F] border border-white/[0.08] hover:bg-[#292B34] text-xs font-medium text-[#EEEFF2] transition-colors">
+                <Workflow className="w-3.5 h-3.5 text-[#9297A5]" />
+                <span>Observe Expert</span>
+              </button>
+            </Link>
+
+            <Link href="/train">
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5EFE6] text-[#16171B] hover:bg-white text-xs font-semibold shadow-sm transition-all hover:scale-[1.02]">
+                <Mic className="w-3.5 h-3.5 text-[#16171B]" />
+                <span>Practice in Voice Drill</span>
+              </button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Compact Session Indicators Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+          {/* Indicator 1: Decision nodes captured */}
+          <div className="p-3 rounded-xl bg-[#181A1F] border border-white/[0.08] flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977] block">
+                Decisions Captured
               </span>
-            )}
+              <span className="text-lg font-semibold text-[#EEEFF2] font-mono leading-none">
+                {metrics.decisionsCaptured}
+              </span>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#38BDF8]/10 border border-[#38BDF8]/20 flex items-center justify-center">
+              <GitFork className="w-3.5 h-3.5 text-[#38BDF8]" />
+            </div>
           </div>
-          <p className="text-xs text-slate-400">
-            Structured decision workflow deconstructed from live observation of <strong>{sessionData.expert}</strong>.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            onClick={fetchSessionData}
-            title="Refresh session data"
-            className="p-2 rounded-lg bg-black/40 border border-white/10 hover:border-white/20 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSession ? "animate-spin" : ""}`} />
-          </button>
-          <Link href="/train">
-            <Button variant="glow" size="sm">
-              <Mic className="w-3.5 h-3.5" />
-              <span>Practice in Voice Drill</span>
-            </Button>
-          </Link>
-          <Link href="/observe">
-            <Button variant="secondary" size="sm" className="hidden sm:inline-flex">
-              <Workflow className="w-3.5 h-3.5" />
-              <span>Expert Observe Mode</span>
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* 2. Top Session Summary & Knowledge Confidence Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {/* Metric 1: Decisions Captured */}
-        <div className="p-3.5 rounded-xl bg-[#0D1321]/90 border border-white/10 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <GitFork className="w-3.5 h-3.5 text-cyan-400" />
-            Decisions Captured
-          </span>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight font-mono">
-              {metrics.decisionsCaptured}
-            </span>
-            <span className="text-[11px] text-cyan-400/90 font-medium">Evaluated</span>
+          {/* Indicator 2: Rules Extracted */}
+          <div className="p-3 rounded-xl bg-[#181A1F] border border-white/[0.08] flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977] block">
+                Rules Extracted
+              </span>
+              <span className="text-lg font-semibold text-[#EEEFF2] font-mono leading-none">
+                {metrics.rulesExtracted}
+              </span>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center">
+              <Lightbulb className="w-3.5 h-3.5 text-[#F59E0B]" />
+            </div>
           </div>
-        </div>
 
-        {/* Metric 2: Rules Extracted */}
-        <div className="p-3.5 rounded-xl bg-[#0D1321]/90 border border-white/10 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Lightbulb className="w-3.5 h-3.5 text-brand-400" />
-            Rules Extracted
-          </span>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight font-mono">
-              {metrics.rulesExtracted}
-            </span>
-            <span className="text-[11px] text-brand-400/90 font-medium">Verified Heuristics</span>
+          {/* Indicator 3: Guardrails */}
+          <div className="p-3 rounded-xl bg-[#181A1F] border border-white/[0.08] flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977] block">
+                Guardrails Active
+              </span>
+              <span className="text-lg font-semibold text-[#EEEFF2] font-mono leading-none">
+                {metrics.guardrailsFound}
+              </span>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#34D399]/10 border border-[#34D399]/20 flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#34D399]" />
+            </div>
           </div>
-        </div>
 
-        {/* Metric 3: Exceptions Found */}
-        <div className="p-3.5 rounded-xl bg-[#0D1321]/90 border border-white/10 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            Exceptions Found
-          </span>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight font-mono">
-              {metrics.exceptionsFound}
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {metrics.exceptionsFound > 0 ? "Edge Cases Handled" : "None Stated"}
-            </span>
-          </div>
-        </div>
-
-        {/* Metric 4: Guardrails Found */}
-        <div className="p-3.5 rounded-xl bg-[#0D1321]/90 border border-white/10 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            Guardrails Found
-          </span>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight font-mono">
-              {metrics.guardrailsFound}
-            </span>
-            <span className="text-[11px] text-emerald-400/90 font-medium">Constraints Active</span>
-          </div>
-        </div>
-
-        {/* Metric 5: Knowledge Confidence Summary */}
-        <div className="p-3.5 rounded-xl bg-[#0D1321]/90 border border-emerald-500/20 flex flex-col justify-between col-span-2 md:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Confidence Score
-            </span>
-            <span className="text-[11px] font-bold text-emerald-400 font-mono">
-              {metrics.avgConfidence}%
-            </span>
-          </div>
-          <div className="mt-2 space-y-1.5">
-            <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+          {/* Indicator 4: Knowledge Confidence */}
+          <div className="p-3 rounded-xl bg-[#181A1F] border border-white/[0.08] flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977]">
+                Knowledge Confidence
+              </span>
+              <span className="text-xs font-mono font-semibold text-[#34D399]">
+                {metrics.avgConfidence}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-[#1F2127] rounded-full overflow-hidden mt-2">
               <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-[#38BDF8] to-[#34D399] rounded-full transition-all duration-500"
                 style={{ width: `${metrics.avgConfidence}%` }}
               />
             </div>
-            <span className="text-[10px] text-slate-400 flex items-center justify-between">
-              <span>Grounding level</span>
-              <span className="text-slate-300">Directly Verified</span>
+          </div>
+        </div>
+
+        {/* View Switcher Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="inline-flex p-1 rounded-xl bg-[#181A1F] border border-white/[0.08]">
+            <button
+              onClick={() => setActiveTab("decision-tree")}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeTab === "decision-tree"
+                  ? "bg-[#292B34] text-[#EEEFF2] shadow-sm"
+                  : "text-[#9297A5] hover:text-[#EEEFF2]"
+              }`}
+            >
+              <GitFork className="w-3.5 h-3.5 text-[#38BDF8]" />
+              <span>Decision Tree View</span>
+              {hasNewKnowledge && (
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-[#34D399] text-[#16171B]">
+                  NEW
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("sop-steps")}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeTab === "sop-steps"
+                  ? "bg-[#292B34] text-[#EEEFF2] shadow-sm"
+                  : "text-[#9297A5] hover:text-[#EEEFF2]"
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-[#9297A5]" />
+              <span>Procedural SOP Steps (5 Nodes)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px] font-mono text-[#646977]">
+            <span className="flex items-center gap-1.5 text-[#9297A5]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+              Scenario: <strong>{sessionData.scenario}</strong>
             </span>
+            <span>•</span>
+            <button
+              onClick={() => setIsDrawerOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1 text-[#38BDF8] hover:underline cursor-pointer"
+            >
+              <Eye className="w-3 h-3" />
+              <span>{isDrawerOpen ? "Hide Decision X-Ray" : "Open Decision X-Ray"}</span>
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* 3. Tab Switcher & Session Status */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-        <div className="inline-flex p-1 rounded-xl bg-black/60 border border-white/10">
-          <button
-            onClick={() => setActiveTab("decision-tree")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === "decision-tree"
-                ? "bg-brand-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <GitFork className="w-3.5 h-3.5" />
-            <span>Structured Decision Hierarchy</span>
-            {hasNewKnowledge && (
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500 text-white">
-                NEW
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("sop-steps")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === "sop-steps"
-                ? "bg-brand-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Procedural SOP Steps (5 Nodes)</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Scenario: <strong>{sessionData.scenario}</strong>
-          </span>
-          <span>•</span>
-          <span>Updated: {sessionData.lastUpdated}</span>
-        </div>
-      </div>
-
+      {/* ═══════════════════════════════════════════════════════════════
+          2. VIEW SWITCHER CONTENT
+          ═══════════════════════════════════════════════════════════════ */}
       {viewState === "loading" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 space-y-4">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-48 w-full" />
-          </div>
-          <div className="lg:col-span-5">
-            <Skeleton className="h-96 w-full" />
-          </div>
+        <div className="space-y-4">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-96 w-full rounded-2xl" />
         </div>
       ) : viewState === "empty" ? (
         <EmptyState
-          icon={<GitFork className="w-8 h-8" />}
+          icon={<GitFork className="w-8 h-8 text-[#9297A5]" />}
           title="No Work Maps Available"
           description="Complete an expert observation session to generate your first procedural work map."
           actionLabel="Go to Observation Mode"
           onAction={() => setViewState("normal")}
         />
       ) : activeTab === "decision-tree" ? (
-        /* DECISION TREE HIERARCHY VIEW */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (7 cols): Visual Hierarchy Decision Graph */}
-          <div className="lg:col-span-7 space-y-4">
-            <Card className="border-white/10 bg-[#0A0E17]/90 shadow-xl">
-              <CardHeader className="pb-3 border-b border-white/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                    <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
-                      Decision Workflow Hierarchy
+        /* ═════════════════════════════════════════════════════════════
+           DECISION CANVAS VIEW (FULL WIDTH, MIN-HEIGHT 760px)
+           ═════════════════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div className="w-full min-h-[760px] bg-[#181A1F]/70 rounded-2xl border border-white/[0.08] relative p-6 sm:p-10 flex flex-col items-center justify-start bg-grid-pattern shadow-2xl backdrop-blur-xs overflow-x-auto">
+            {/* Canvas Header Tag & Help */}
+            <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-6 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-[#EEEFF2] font-medium">
+                  Autonomous Decision Architecture
+                </span>
+                <span className="text-[10px] font-mono text-[#646977]">
+                  (28px coordinate grid)
+                </span>
+              </div>
+              <div className="text-[11px] font-mono text-[#9297A5] flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-[#38BDF8]" />
+                <span>Click any node card to inspect Decision X-Ray</span>
+              </div>
+            </div>
+
+            {/* Canvas Graph Hierarchy */}
+            <div className="w-full max-w-4xl flex flex-col items-center py-6">
+              {/* ────────────────────────────────────────────────────────
+                  LEVEL 1: OBSERVATION / CONTEXT NODE
+                  ──────────────────────────────────────────────────────── */}
+              <div className="relative group">
+                <div
+                  onClick={() => handleSelectNode("dt-root")}
+                  className={`w-[230px] sm:w-[250px] p-3.5 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#38BDF8] ${
+                    selectedDecisionId === "dt-root"
+                      ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-[#38BDF8]/60"
+                      : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-[#38BDF8] uppercase tracking-wider font-semibold">
+                      Trigger
                     </span>
+                    <span className="text-[#646977]">05:14</span>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-cyan-400" />
-                    Click any node to view Decision X-Ray
+                  <h4 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1">
+                    18% Revenue Drop Detected
+                  </h4>
+                  <p className="text-[11px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                    Looker executive dashboard alerts of sudden 18% decline week-over-week in EMEA.
+                  </p>
+                  <div className="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                    <span className="text-[#646977] font-mono">Confidence</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className="w-[98%] h-full bg-[#34D399] rounded-full" />
+                      </div>
+                      <span className="text-[#EEEFF2] font-mono font-medium">98%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Connector: Level 1 -> Level 2 */}
+              <div className="flex flex-col items-center py-1">
+                <div className="w-[1.5px] h-7 bg-white/20" />
+                <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-white/30" />
+              </div>
+
+              {/* ────────────────────────────────────────────────────────
+                  LEVEL 2: DECISION / SPLIT POINT NODE
+                  ──────────────────────────────────────────────────────── */}
+              <div className="relative group">
+                <div
+                  onClick={() => handleSelectNode("dt-decision-threshold")}
+                  className={`w-[230px] sm:w-[250px] p-3.5 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#F59E0B] ${
+                    selectedDecisionId === "dt-decision-threshold"
+                      ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-[#F59E0B]/60"
+                      : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-[#F59E0B] uppercase tracking-wider font-semibold">
+                      Decision Point
+                    </span>
+                    <span className="text-[#646977]">05:14</span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1">
+                    Variance Magnitude Check
+                  </h4>
+                  <p className="text-[11px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                    Evaluates variance magnitude against the 10% tolerance threshold before escalation.
+                  </p>
+                  <div className="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                    <span className="text-[#646977] font-mono">Confidence</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className="w-[95%] h-full bg-[#34D399] rounded-full" />
+                      </div>
+                      <span className="text-[#EEEFF2] font-mono font-medium">95%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Connector: Level 2 Split Fork (SVG with YES/NO Badges) */}
+              <div className="w-full max-w-2xl relative h-16 my-1">
+                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 64">
+                  {/* Stem from center */}
+                  <line x1="300" y1="0" x2="300" y2="16" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                  
+                  {/* Horizontal Bar */}
+                  <line x1="150" y1="16" x2="450" y2="16" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                  
+                  {/* Left Drop to Normal Check */}
+                  <line x1="150" y1="16" x2="150" y2="58" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                  <polygon points="146,58 154,58 150,64" fill="rgba(255,255,255,0.3)" />
+
+                  {/* Right Drop to Critical Check */}
+                  <line x1="450" y1="16" x2="450" y2="58" stroke="rgba(52,211,153,0.4)" strokeWidth="1.5" />
+                  <polygon points="446,58 454,58 450,64" fill="#34D399" />
+                </svg>
+
+                {/* Branch Badges Overlay */}
+                <div className="absolute inset-0 flex items-center justify-between px-16 sm:px-28 pointer-events-none">
+                  <span className="px-2 py-0.5 rounded bg-[#1F2127] border border-white/[0.08] text-[9.5px] font-mono text-[#9297A5] shadow-xs">
+                    NO (≤ 10%)
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#34D399]/15 border border-[#34D399]/40 text-[9.5px] font-mono font-semibold text-[#34D399] shadow-xs">
+                    YES (&gt; 10%)
                   </span>
                 </div>
-                <CardTitle className="text-base text-white mt-1">
-                  Expert Observation → Action Architecture
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
-                  Concise decision flow showing the transformation of raw observations into operational rules.
-                </CardDescription>
-              </CardHeader>
+              </div>
 
-              <CardContent className="space-y-4 pt-4">
-                {/* Visual Level Legend */}
-                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 pb-2 border-b border-white/5">
-                  <span className="text-slate-500 uppercase tracking-wider">Hierarchy:</span>
-                  <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                    1. Observation
-                  </span>
-                  <span>→</span>
-                  <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                    2. Decision Point
-                  </span>
-                  <span>→</span>
-                  <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                    3. Rule / Condition
-                  </span>
-                  <span>→</span>
-                  <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                    4. Action
-                  </span>
-                  <span>→</span>
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    5. Guardrail / Exception
-                  </span>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════
-                    LEVEL 1: EXPERT OBSERVATION
-                    ═══════════════════════════════════════════════════════════ */}
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <TrendingDown className="w-3 h-3 text-amber-400" />
-                    <span>Level 1: Expert Observation</span>
-                  </div>
-
+              {/* ────────────────────────────────────────────────────────
+                  LEVEL 3: TWO PATHS (LEFT: NORMAL, RIGHT: CRITICAL)
+                  ──────────────────────────────────────────────────────── */}
+              <div className="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-12 place-items-center">
+                {/* Left Branch: Normal Variance Check */}
+                <div className="flex flex-col items-center">
                   <div
-                    onClick={() => setSelectedDecisionId("dt-root")}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                      selectedDecisionId === "dt-root"
-                        ? "bg-amber-500/15 border-amber-500/70 text-white shadow-lg ring-1 ring-amber-500/40"
-                        : "bg-[#0E1522]/90 border-white/10 hover:border-white/20 text-slate-200"
+                    onClick={() => handleSelectNode("dt-minor-fluctuation")}
+                    className={`w-[230px] sm:w-[240px] p-3.5 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#646977] ${
+                      selectedDecisionId === "dt-minor-fluctuation"
+                        ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(255,255,255,0.1)] ring-1 ring-white/30"
+                        : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-semibold">
-                          TRIGGER
-                        </span>
-                        <h4 className="text-xs font-semibold text-white">
-                          18% Revenue Drop Detected on Dashboard
-                        </h4>
-                      </div>
-                      <span className="text-[10px] text-amber-400/80 font-mono font-medium">
-                        {selectedDecisionId === "dt-root" ? "X-Ray Active" : "Click to X-Ray"}
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-[#9297A5] uppercase tracking-wider font-semibold">
+                        Routine
                       </span>
+                      <span className="text-[#646977]">≤ 10% Band</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Looker executive dashboard alerts of sudden 18% decline. Instinct is to call sales; expert pauses.
+                    <h4 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1">
+                      Standard Daily Reconciliation
+                    </h4>
+                    <p className="text-[11px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                      Within normal batch sync tolerance. Await hourly refresh without firing incident alerts.
                     </p>
-                  </div>
-                </div>
-
-                {/* Downward Connector Line */}
-                <div className="flex justify-center -my-1">
-                  <div className="w-0.5 h-6 bg-slate-700 relative">
-                    <ArrowDown className="w-3 h-3 text-slate-500 absolute -bottom-2 -left-[5px]" />
-                  </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════
-                    LEVEL 2: DECISION POINT
-                    ═══════════════════════════════════════════════════════════ */}
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-                    <GitFork className="w-3 h-3 text-cyan-400" />
-                    <span>Level 2: Decision Point</span>
-                  </div>
-
-                  <div
-                    onClick={() => setSelectedDecisionId("dt-decision-threshold")}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                      selectedDecisionId === "dt-decision-threshold"
-                        ? "bg-cyan-500/15 border-cyan-500/70 text-white shadow-lg ring-1 ring-cyan-500/40"
-                        : "bg-[#0E1522]/90 border-white/10 hover:border-white/20 text-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-semibold">
-                          EVALUATION
-                        </span>
-                        <h4 className="text-xs font-semibold text-white">
-                          Variance Magnitude Evaluation: Tolerance Check
-                        </h4>
-                      </div>
-                      <span className="text-[10px] text-cyan-300 font-mono font-medium">
-                        {selectedDecisionId === "dt-decision-threshold" ? "X-Ray Active" : "95% conf"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Evaluates variance size against expert tolerance threshold before escalating to leadership.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Downward Branching Connector Line */}
-                <div className="flex justify-center -my-1">
-                  <div className="w-0.5 h-6 bg-slate-700 relative">
-                    <ArrowDown className="w-3 h-3 text-slate-500 absolute -bottom-2 -left-[5px]" />
-                  </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════
-                    LEVEL 3 & 4: RULE / CONDITION → ACTION BRANCHES
-                    ═══════════════════════════════════════════════════════════ */}
-                <div className="space-y-2">
-                  <div className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3 h-3 text-purple-400" />
-                    <span>Level 3 &amp; 4: Rule / Condition → Action Execution</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Branch A: Low Variance (<= 10%) */}
-                    <div
-                      onClick={() => setSelectedDecisionId("dt-minor-fluctuation")}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDecisionId === "dt-minor-fluctuation"
-                          ? "bg-slate-800/80 border-slate-400 text-white shadow-lg ring-1 ring-slate-400/30"
-                          : "bg-[#0E1522]/60 border-white/5 hover:border-white/20 text-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono font-semibold border border-slate-700">
-                            Condition: Variance ≤ 10%
-                          </span>
-                          <span className="text-slate-400 font-mono">Routine</span>
+                    <div className="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                      <span className="text-[#646977] font-mono">Confidence</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                          <div className="w-[92%] h-full bg-[#34D399] rounded-full" />
                         </div>
-                        <h5 className="text-xs font-semibold text-white mt-2">
-                          Standard Daily Reconciliation
-                        </h5>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Within standard batch sync tolerance. Await hourly refresh without firing incident alerts.
-                        </p>
-                      </div>
-
-                      <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Action: Monitor sync</span>
-                        <span>92% conf</span>
-                      </div>
-                    </div>
-
-                    {/* Branch B: High Variance (> 10%) - Critical / NEW */}
-                    {(() => {
-                      const largeVarNode = sessionData.decisionTree.find(
-                        (n) => n.id === "dt-large-variance-ledger"
-                      );
-                      const isNew = largeVarNode?.isNew;
-
-                      return (
-                        <div
-                          onClick={() => setSelectedDecisionId("dt-large-variance-ledger")}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
-                            selectedDecisionId === "dt-large-variance-ledger"
-                              ? "bg-emerald-500/15 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/50"
-                              : isNew
-                              ? "bg-emerald-950/25 border-emerald-500/40 text-slate-200 hover:border-emerald-400"
-                              : "bg-[#0E1522]/80 border-white/10 hover:border-white/20 text-slate-300"
-                          }`}
-                        >
-                          {isNew && (
-                            <div className="absolute top-2 right-2">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold shadow-sm tracking-wider uppercase">
-                                ✨ NEW
-                              </span>
-                            </div>
-                          )}
-
-                          <div>
-                            <div className="flex items-center gap-2 text-[10px]">
-                              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-semibold">
-                                Condition: Variance &gt; 10%
-                              </span>
-                            </div>
-
-                            <h5 className="text-xs font-semibold text-white mt-2 flex items-center gap-1.5">
-                              <Database className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Direct Raw Transaction Verification</span>
-                            </h5>
-
-                            <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">
-                              {largeVarNode?.rule ||
-                                "When variance exceeds 10%, query raw transaction events before raising any alert."}
-                            </p>
-                          </div>
-
-                          <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
-                            <span className="text-emerald-400 font-medium">Action: Query Snowflake</span>
-                            <span className="font-mono text-emerald-300 font-semibold">
-                              {selectedDecisionId === "dt-large-variance-ledger"
-                                ? "X-Ray Active"
-                                : `${largeVarNode?.confidence || 99}% conf`}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {/* Downward Branching Connector to Level 5 */}
-                <div className="flex justify-end pr-8 -my-1">
-                  <div className="w-0.5 h-6 bg-slate-700 relative">
-                    <ArrowDown className="w-3 h-3 text-slate-500 absolute -bottom-2 -left-[5px]" />
-                  </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════════
-                    LEVEL 5: EXCEPTION / GUARDRAIL & RESOLUTION
-                    ═══════════════════════════════════════════════════════════ */}
-                <div className="space-y-2">
-                  <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                    <span>Level 5: Exception / Guardrail Resolution</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Exception: Ingestion Lag */}
-                    <div
-                      onClick={() => setSelectedDecisionId("dt-missing-events-lag")}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDecisionId === "dt-missing-events-lag"
-                          ? "bg-rose-500/15 border-rose-500/70 text-white shadow-lg ring-1 ring-rose-500/30"
-                          : "bg-[#0E1522]/60 border-white/5 hover:border-white/20 text-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono font-semibold">
-                            EXCEPTION
-                          </span>
-                          <span className="text-rose-400 font-mono">Sync Delay</span>
-                        </div>
-                        <h5 className="text-xs font-semibold text-white mt-1.5">
-                          Report Ingestion Sync Delay
-                        </h5>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Missing raw records reveal ETL pipeline lag. Suppress executive alarms; alert Data Eng.
-                        </p>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="text-rose-300">Guardrail: Suppress churn panic</span>
-                        <span>96% conf</span>
-                      </div>
-                    </div>
-
-                    {/* Resolution: Confirmed Business Churn */}
-                    <div
-                      onClick={() => setSelectedDecisionId("dt-events-confirmed-business")}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDecisionId === "dt-events-confirmed-business"
-                          ? "bg-emerald-500/15 border-emerald-500/70 text-white shadow-lg ring-1 ring-emerald-500/30"
-                          : "bg-[#0E1522]/60 border-white/5 hover:border-white/20 text-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-semibold">
-                            RESOLUTION
-                          </span>
-                          <span className="text-emerald-400 font-mono">Verified Raw</span>
-                        </div>
-                        <h5 className="text-xs font-semibold text-white mt-1.5">
-                          Investigate True Churn Cause
-                        </h5>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Raw transactions confirm decline is real. Escalate with confidence to cohort breakdown.
-                        </p>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="text-emerald-300">Guardrail: Grounded escalation</span>
-                        <span>98% conf</span>
+                        <span className="text-[#EEEFF2] font-mono font-medium">92%</span>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* ═══════════════════════════════════════════════════════════
-                    EXTRACTED KNOWLEDGE INVENTORY FEED
-                    ═══════════════════════════════════════════════════════════ */}
-                <div className="mt-6 pt-5 border-t border-white/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-brand-400" />
-                      Extracted Knowledge Feed ({sessionData.knowledgeItems.length})
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Click item to inspect X-Ray
+                  {/* Terminal Indicator */}
+                  <div className="flex flex-col items-center mt-3 text-[10px] font-mono text-[#646977]">
+                    <div className="w-[1.5px] h-4 bg-white/10" />
+                    <span className="px-2 py-0.5 rounded bg-[#131417] border border-white/[0.06] mt-1">
+                      Cycle Continues
                     </span>
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    {sessionData.knowledgeItems.map((item) => (
+                {/* Right Branch: Critical Variance Ledger Check (WITH NEW BADGE) */}
+                {(() => {
+                  const largeVarNode = sessionData.decisionTree.find(
+                    (n) => n.id === "dt-large-variance-ledger"
+                  );
+                  const isNew = largeVarNode?.isNew;
+
+                  return (
+                    <div className="flex flex-col items-center w-full">
                       <div
-                        key={item.id}
-                        onClick={() => {
-                          if (item.id === "k-expert-10-percent-rule") {
-                            setSelectedDecisionId("dt-large-variance-ledger");
-                          } else {
-                            setSelectedDecisionId("dt-decision-threshold");
-                          }
-                        }}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                          item.isNew
-                            ? "bg-emerald-500/10 border-emerald-500/40 text-white hover:border-emerald-400"
-                            : "bg-black/30 border-white/5 text-slate-300 hover:border-white/20"
+                        onClick={() => handleSelectNode("dt-large-variance-ledger")}
+                        className={`w-[230px] sm:w-[240px] p-3.5 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#34D399] relative ${
+                          selectedDecisionId === "dt-large-variance-ledger"
+                            ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(52,211,153,0.25)] ring-1 ring-[#34D399]/60"
+                            : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">
-                              {item.title}
+                        {isNew && (
+                          <div className="absolute -top-2 -right-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#34D399] text-[#16171B] text-[9px] font-mono font-extrabold shadow-md tracking-wider uppercase">
+                              ✨ NEW
                             </span>
-                            {item.isNew && (
-                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-500 text-white tracking-wider">
-                                NEW
-                              </span>
-                            )}
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {item.timestamp}
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] font-mono">
+                          <span className="text-[#34D399] uppercase tracking-wider font-semibold">
+                            Critical Action
                           </span>
+                          <span className="text-[#34D399] font-mono">05:18</span>
                         </div>
-
-                        <p className="text-xs text-slate-200 mt-1 leading-relaxed">
-                          {item.ruleOrReasoningText}
+                        <h4 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1 flex items-center gap-1.5">
+                          <Database className="w-3 h-3 text-[#34D399]" />
+                          <span>Direct Raw Transaction Verification</span>
+                        </h4>
+                        <p className="text-[11px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                          When variance exceeds 10%, query raw transaction events in Snowflake before raising any alert.
                         </p>
+                        <div className="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                          <span className="text-[#646977] font-mono">Confidence</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-12 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                              <div className="w-[99%] h-full bg-[#34D399] rounded-full" />
+                            </div>
+                            <span className="text-[#EEEFF2] font-mono font-medium">99%</span>
+                          </div>
+                        </div>
+                      </div>
 
-                        <div className="mt-2 pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400">
-                          <span className="italic line-clamp-1">
-                            Evidence: {item.evidence}
+                      {/* Connector: Right Branch -> Level 4 Outcomes */}
+                      <div className="w-full max-w-[280px] relative h-14 my-1">
+                        <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 280 56">
+                          <line x1="140" y1="0" x2="140" y2="14" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                          <line x1="60" y1="14" x2="220" y2="14" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                          <line x1="60" y1="14" x2="60" y2="50" stroke="rgba(239,68,68,0.4)" strokeWidth="1.5" />
+                          <polygon points="56,50 64,50 60,56" fill="#EF4444" />
+                          <line x1="220" y1="14" x2="220" y2="50" stroke="rgba(52,211,153,0.4)" strokeWidth="1.5" />
+                          <polygon points="216,50 224,50 220,56" fill="#34D399" />
+                        </svg>
+
+                        <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
+                          <span className="px-1.5 py-0.2 rounded bg-[#EF4444]/15 border border-[#EF4444]/30 text-[8.5px] font-mono text-[#EF4444]">
+                            Missing
                           </span>
-                          <span className="text-emerald-400 font-medium font-mono">
-                            {item.confidence}% confidence
+                          <span className="px-1.5 py-0.2 rounded bg-[#34D399]/15 border border-[#34D399]/30 text-[8.5px] font-mono text-[#34D399]">
+                            Settled
                           </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Right Column (5 cols): Decision Inspector & Decision X-Ray Section */}
-          <div className="lg:col-span-5 space-y-4">
-            <Card className="border-white/10 bg-[#0E1522]/95 sticky top-6 shadow-2xl">
-              <CardHeader className="pb-3 border-b border-white/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
-                      Decision Inspector
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-300 border border-brand-500/30 text-[10px] font-mono">
-                      Captured from observation
-                    </span>
-                  </div>
-                  {selectedDecisionNode?.isNew && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold shadow-sm tracking-wider">
-                      ✨ NEW
-                    </span>
-                  )}
-                </div>
+                      {/* ────────────────────────────────────────────────────────
+                          LEVEL 4: FOLLOW-UP OUTCOME NODES
+                          ──────────────────────────────────────────────────────── */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[480px]">
+                        {/* Node 5: Ingestion Lag (Exception) */}
+                        <div
+                          onClick={() => handleSelectNode("dt-missing-events-lag")}
+                          className={`p-3 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#EF4444] ${
+                            selectedDecisionId === "dt-missing-events-lag"
+                              ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(239,68,68,0.2)] ring-1 ring-[#EF4444]/60"
+                              : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="text-[#EF4444] uppercase tracking-wider font-semibold">
+                              Exception
+                            </span>
+                            <span className="text-[#646977]">ETL Lag</span>
+                          </div>
+                          <h5 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1">
+                            Report Ingestion Delay
+                          </h5>
+                          <p className="text-[10.5px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                            Missing raw records reveal ETL pipeline lag. Suppress executive alarms; alert Data Eng.
+                          </p>
+                          <div className="mt-2 pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                            <span className="text-[#646977] font-mono">Guardrail</span>
+                            <span className="text-[#EEEFF2] font-mono">96%</span>
+                          </div>
+                        </div>
 
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <CardTitle className="text-base text-white">
-                    Decision X-Ray
-                  </CardTitle>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${
-                      xrayData.sourceClassification === "EXPLICIT"
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50"
-                        : xrayData.sourceClassification === "INFERRED"
-                        ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50"
-                        : "bg-slate-800 text-slate-400 border-slate-700"
+                        {/* Node 6: Confirmed Churn (Resolution) */}
+                        <div
+                          onClick={() => handleSelectNode("dt-events-confirmed-business")}
+                          className={`p-3 rounded-[10px] border transition-all cursor-pointer select-none bg-[#181A1F] border-l-4 border-l-[#34D399] ${
+                            selectedDecisionId === "dt-events-confirmed-business"
+                              ? "border-white/[0.25] bg-[#292B34] shadow-[0_0_20px_rgba(52,211,153,0.2)] ring-1 ring-[#34D399]/60"
+                              : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="text-[#34D399] uppercase tracking-wider font-semibold">
+                              Resolution
+                            </span>
+                            <span className="text-[#646977]">Verified</span>
+                          </div>
+                          <h5 className="text-xs font-semibold text-[#EEEFF2] mt-1 line-clamp-1">
+                            Investigate Churn Cause
+                          </h5>
+                          <p className="text-[10.5px] text-[#9297A5] mt-1 line-clamp-2 leading-relaxed">
+                            Raw transactions confirm decline is real. Escalate with validated numbers to leadership.
+                          </p>
+                          <div className="mt-2 pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-[10px]">
+                            <span className="text-[#646977] font-mono">Grounded</span>
+                            <span className="text-[#EEEFF2] font-mono">98%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Extracted Knowledge Inventory Feed below Canvas */}
+            <div className="w-full mt-10 pt-6 border-t border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-[#38BDF8]" />
+                  <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#EEEFF2]">
+                    Extracted Knowledge Feed ({sessionData.knowledgeItems.length})
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-[#646977]">
+                  Grounded in Sarah Chen&apos;s observed transcript
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {sessionData.knowledgeItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id === "k-expert-10-percent-rule") {
+                        handleSelectNode("dt-large-variance-ledger");
+                      } else {
+                        handleSelectNode("dt-decision-threshold");
+                      }
+                    }}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer bg-[#181A1F] ${
+                      item.isNew
+                        ? "border-[#34D399]/40 hover:border-[#34D399] hover:bg-[#292B34]"
+                        : "border-white/[0.08] hover:border-white/[0.2] hover:bg-[#292B34]"
                     }`}
                   >
-                    {xrayData.sourceClassification}
-                  </span>
-                </div>
-                <CardDescription className="text-xs text-slate-400">
-                  Detailed evidence-backed explanation of how this decision was elicited from expert observation.
-                </CardDescription>
-
-                {/* Source Classification Legend */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-mono">
-                  <span className="text-slate-500">Source Types:</span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                    EXPLICIT: Directly Stated
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                    INFERRED: Model Interpretation
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                    UNKNOWN: Not Stated
-                  </span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-3.5 pt-3.5 text-xs">
-                {/* ═══════════════════════════════════════════════════════════
-                    PROMINENT VERBATIM GROUNDED EVIDENCE (Requirements 4 & 8)
-                    ═══════════════════════════════════════════════════════════ */}
-                {xrayData.evidence !== "Not stated by expert" ? (
-                  <div className="p-4 rounded-xl border border-emerald-500/50 bg-gradient-to-br from-emerald-950/40 via-[#0A121E] to-[#0E1522] shadow-[0_0_25px_rgba(16,185,129,0.12)] space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                        <Quote className="w-3.5 h-3.5 text-emerald-400" />
-                        Exact Expert Sentence (Grounded Evidence)
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold font-mono border border-emerald-500/40">
-                        EXPLICIT
-                      </span>
-                    </div>
-
-                    <blockquote className="text-sm font-semibold text-white italic tracking-wide leading-relaxed pl-2.5 border-l-2 border-emerald-400">
-                      &quot;{xrayData.evidence}&quot;
-                    </blockquote>
-
-                    <div className="pt-1.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-400 font-mono">
-                      <span>Speaker: <strong>Sarah Chen</strong></span>
-                      <span className="text-emerald-400 font-medium">Grounded in actual words</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl border border-white/10 bg-slate-900/50 space-y-1 text-slate-400">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">
-                        Grounded Evidence
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 text-[9px] font-bold font-mono border border-slate-700">
-                        UNKNOWN
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 italic">
-                      Not stated by expert in current observation session.
-                    </p>
-                  </div>
-                )}
-
-                {/* 1. Decision & Trigger / Condition */}
-                <div className="grid grid-cols-1 gap-2.5">
-                  <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Decision Evaluated
-                    </span>
-                    <p className="text-slate-100 font-medium leading-relaxed">
-                      {xrayData.decision}
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1">
-                    <span className="text-[10px] font-semibold text-cyan-300 uppercase tracking-wider block font-mono">
-                      Trigger / Condition
-                    </span>
-                    <p className="text-slate-200 leading-relaxed font-mono text-[11px]">
-                      {xrayData.triggerCondition}
-                    </p>
-                  </div>
-                </div>
-
-                {/* 2. Why It Matters */}
-                <div className="p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/20 space-y-1">
-                  <span className="text-[10px] font-semibold text-cyan-300 uppercase tracking-wider block">
-                    Why It Matters
-                  </span>
-                  <p className="text-slate-200 leading-relaxed">
-                    {xrayData.whyItMatters}
-                  </p>
-                </div>
-
-                {/* 3. Expert Reasoning */}
-                <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-1">
-                  <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-wider block">
-                    Expert Reasoning
-                  </span>
-                  <p className="text-slate-200 leading-relaxed italic">
-                    {xrayData.expertReasoning !== "Not stated by expert"
-                      ? `"${xrayData.expertReasoning}"`
-                      : "Not stated by expert"}
-                  </p>
-                </div>
-
-                {/* 4. Extracted Rule */}
-                {(() => {
-                  const ruleClassification = getFieldClassification(
-                    xrayData.extractedRule,
-                    xrayData.evidence,
-                    selectedDecisionNode?.id,
-                    "rule"
-                  );
-
-                  return (
-                    <div className="p-3 rounded-xl bg-[#090D16] border border-white/10 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <Lightbulb className="w-3.5 h-3.5 text-brand-400" />
-                          Extracted Rule
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[#EEEFF2]">
+                          {item.title}
                         </span>
-                        <span
-                          title={ruleClassification.description}
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border ${ruleClassification.badgeClass}`}
-                        >
-                          {ruleClassification.label}
-                        </span>
+                        {item.isNew && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-[#34D399] text-[#16171B]">
+                            NEW
+                          </span>
+                        )}
                       </div>
-                      <p className="text-slate-100 leading-relaxed font-medium">
-                        {xrayData.extractedRule}
-                      </p>
+                      <span className="text-[10px] font-mono text-[#646977]">
+                        {item.timestamp}
+                      </span>
                     </div>
-                  );
-                })()}
 
-                {/* 5. Exception */}
-                {(() => {
-                  const exceptionClassification = getFieldClassification(
-                    xrayData.exception,
-                    xrayData.evidence,
-                    selectedDecisionNode?.id,
-                    "exception"
-                  );
+                    <p className="text-xs text-[#9297A5] mt-1.5 leading-relaxed">
+                      {item.ruleOrReasoningText}
+                    </p>
 
-                  return (
-                    <div className="p-3 rounded-xl bg-[#090D16] border border-white/10 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                          Exception
-                        </span>
-                        <span
-                          title={exceptionClassification.description}
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border ${exceptionClassification.badgeClass}`}
-                        >
-                          {exceptionClassification.label}
-                        </span>
-                      </div>
-                      <p className="text-slate-200 leading-relaxed">
-                        {xrayData.exception}
-                      </p>
+                    <div className="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-[#646977]">
+                      <span className="italic line-clamp-1">
+                        &quot;{item.evidence}&quot;
+                      </span>
+                      <span className="text-[#34D399] font-medium shrink-0 ml-2">
+                        {item.confidence}% conf
+                      </span>
                     </div>
-                  );
-                })()}
-
-                {/* 6. Guardrail */}
-                {(() => {
-                  const guardrailClassification = getFieldClassification(
-                    xrayData.guardrail,
-                    xrayData.evidence,
-                    selectedDecisionNode?.id,
-                    "guardrail"
-                  );
-
-                  return (
-                    <div className="p-3 rounded-xl bg-[#090D16] border border-white/10 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                          Guardrail
-                        </span>
-                        <span
-                          title={guardrailClassification.description}
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border ${guardrailClassification.badgeClass}`}
-                        >
-                          {guardrailClassification.label}
-                        </span>
-                      </div>
-                      <p className="text-slate-200 leading-relaxed">
-                        {xrayData.guardrail}
-                      </p>
-                    </div>
-                  );
-                })()}
-
-                {/* 7. Confidence Progress & Timestamp & Source */}
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span className="font-semibold text-[11px]">Knowledge Confidence</span>
-                    <span className="font-mono text-emerald-400 font-bold">
-                      {xrayData.confidence}%
-                    </span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
-                      style={{ width: `${xrayData.confidence}%` }}
-                    />
-                  </div>
-                  <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Captured: {xrayData.timestamp}</span>
-                    <span className="text-slate-300">Observation Verified</span>
-                  </div>
-                </div>
-
-                {/* Source attribution */}
-                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 text-[11px] text-slate-400">
-                  <span className="text-slate-500 block text-[10px] uppercase font-semibold font-mono">
-                    Source Attribution:
-                  </span>
-                  <span className="text-slate-200 font-medium">
-                    {xrayData.source}
-                  </span>
-                </div>
-
-                {/* Action Link to Training Drill */}
-                <div className="pt-1">
-                  <Link href="/train">
-                    <Button variant="glow" size="sm" className="w-full">
-                      <Mic className="w-3.5 h-3.5" />
-                      <span>Practice This Decision in Voice Drill</span>
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       ) : (
-        /* PROCEDURAL SOP STEPS VIEW */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (5 cols): Process Switcher & Procedural Nodes Flow */}
+        /* ═════════════════════════════════════════════════════════════
+           PROCEDURAL SOP STEPS VIEW
+           ═════════════════════════════════════════════════════════════ */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in-up">
+          {/* Left Column (5 cols): Process Switcher & Procedural Sequence */}
           <div className="lg:col-span-5 space-y-4">
             <div className="space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-[10.5px] font-mono uppercase tracking-wider text-[#646977]">
                 Synthesized SOPs ({MOCK_WORK_MAPS.length})
               </span>
               {MOCK_WORK_MAPS.map((proc) => (
@@ -1241,24 +965,24 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
                   }}
                   className={`p-4 rounded-xl border transition-all cursor-pointer ${
                     selectedProcessId === proc.id
-                      ? "bg-surface-100 border-brand-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                      : "bg-[#0E1522]/60 border-white/5 hover:border-white/20 hover:bg-white/[0.02]"
+                      ? "bg-[#292B34] border-[#38BDF8]/50 shadow-[0_0_15px_rgba(56,189,248,0.15)]"
+                      : "bg-[#181A1F] border-white/[0.08] hover:border-white/[0.2] hover:bg-[#1F2127]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-slate-400">
+                    <span className="text-[11px] font-mono text-[#646977]">
                       {proc.department}
                     </span>
                     <Badge variant="cyan" className="text-[10px]">
                       {proc.complexity}
                     </Badge>
                   </div>
-                  <h3 className="text-sm font-semibold text-white mt-1">
+                  <h3 className="text-sm font-semibold text-[#EEEFF2] mt-1">
                     {proc.title}
                   </h3>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-slate-400">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-[#9297A5]">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-400" />
+                      <Clock className="w-3 h-3 text-[#646977]" />
                       {proc.estimatedMinutes}m avg
                     </span>
                     <span>•</span>
@@ -1270,10 +994,10 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
 
             {/* Stepper Flow */}
             <div className="pt-2 space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-[10.5px] font-mono uppercase tracking-wider text-[#646977]">
                 Step-by-Step Node Sequence
               </span>
-              <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-white/10">
+              <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-white/[0.08]">
                 {currentProcess.nodes.map((node) => {
                   const isSelected = selectedNode?.id === node.id;
                   return (
@@ -1282,24 +1006,24 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
                       onClick={() => setSelectedNodeId(node.id)}
                       className={`relative p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-brand-600/15 border-brand-500/40 text-white shadow-lg"
-                          : "bg-[#0E1522]/70 border-white/5 text-slate-300 hover:border-white/20"
+                          ? "bg-[#292B34] border-[#38BDF8]/50 text-[#EEEFF2] shadow-lg"
+                          : "bg-[#181A1F] border-white/[0.08] text-[#9297A5] hover:border-white/[0.2] hover:text-[#EEEFF2]"
                       }`}
                     >
                       <div
                         className={`absolute -left-6 top-4 w-3.5 h-3.5 rounded-full border-2 ${
                           isSelected
-                            ? "bg-brand-500 border-white"
-                            : "bg-surface-200 border-white/20"
+                            ? "bg-[#38BDF8] border-white"
+                            : "bg-[#1F2127] border-white/20"
                         }`}
                       />
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium truncate">
+                        <span className="text-xs font-medium truncate text-[#EEEFF2]">
                           {node.title}
                         </span>
                         {getNodeTypeBadge(node.type)}
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
+                      <p className="text-[11px] text-[#9297A5] mt-1 line-clamp-1">
                         {node.description}
                       </p>
                     </div>
@@ -1312,37 +1036,37 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
           {/* Right Column (7 cols): Deep Node Inspector */}
           <div className="lg:col-span-7 space-y-4">
             {selectedNode && (
-              <Card className="border-brand-500/30">
-                <CardHeader>
+              <div className="p-5 rounded-2xl bg-[#181A1F] border border-white/[0.08] shadow-xl space-y-5">
+                <div className="space-y-2 pb-4 border-b border-white/[0.08]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {getNodeTypeBadge(selectedNode.type)}
-                      <Badge variant="brand" className="text-[10px]">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/20">
                         {selectedNode.confidence}% apprentice confidence
-                      </Badge>
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-[#646977] font-mono">
                       ~{selectedNode.durationMinutes} mins execution
                     </span>
                   </div>
-                  <CardTitle className="mt-2 text-lg">
+                  <h2 className="text-lg font-semibold text-[#EEEFF2]">
                     {selectedNode.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm text-slate-300">
+                  </h2>
+                  <p className="text-sm text-[#9297A5]">
                     {selectedNode.description}
-                  </CardDescription>
-                </CardHeader>
+                  </p>
+                </div>
 
-                <CardContent className="space-y-5 pt-0">
+                <div className="space-y-4">
                   <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    <h4 className="text-[10.5px] font-mono uppercase tracking-wider text-[#646977] mb-2">
                       Tools &amp; Applications Interacted With
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {selectedNode.appsUsed.map((app) => (
                         <span
                           key={app}
-                          className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-xs font-mono text-slate-200"
+                          className="px-2.5 py-1 rounded-lg bg-[#1F2127] border border-white/[0.08] text-xs font-mono text-[#EEEFF2]"
                         >
                           {app}
                         </span>
@@ -1350,32 +1074,32 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-accent-cyan/5 border border-accent-cyan/20 space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-accent-cyan">
+                  <div className="p-4 rounded-xl bg-[#38BDF8]/5 border border-[#38BDF8]/20 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#38BDF8]">
                       <Lightbulb className="w-4 h-4" />
                       <span>Captured Senior Expert Shortcut</span>
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-[#EEEFF2] leading-relaxed">
                       {selectedNode.expertTips}
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/20 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-rose-400">
+                  <div className="p-4 rounded-xl bg-[#EF4444]/5 border border-[#EF4444]/20 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#EF4444]">
                       <AlertTriangle className="w-4 h-4" />
                       <span>Common Junior Pitfalls to Avoid</span>
                     </div>
                     <ul className="space-y-1.5">
                       {selectedNode.commonPitfalls.map((pitfall, i) => (
-                        <li key={i} className="text-xs text-slate-300 flex items-start gap-2">
-                          <span className="text-rose-400 text-sm leading-none">•</span>
+                        <li key={i} className="text-xs text-[#9297A5] flex items-start gap-2">
+                          <span className="text-[#EF4444] text-sm leading-none">•</span>
                           <span>{pitfall}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
+                  <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-xs text-[#9297A5]">
                     <span>
                       Connections:{" "}
                       {selectedNode.connections.length > 0
@@ -1383,17 +1107,313 @@ export function WorkMapClient({ initialSession }: WorkMapClientProps) {
                         : "Terminal Step"}
                     </span>
                     <Link href="/train">
-                      <Button variant="glow" size="sm">
+                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F5EFE6] text-[#16171B] hover:bg-white text-xs font-semibold transition-all">
                         <Mic className="w-3.5 h-3.5" />
-                        <span>Practice This Step in Voice Simulator</span>
-                      </Button>
+                        <span>Practice Step in Voice Simulator</span>
+                      </button>
                     </Link>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          3. DECISION X-RAY (DRAWER / INSPECTOR)
+          ═══════════════════════════════════════════════════════════════ */}
+      {isDrawerOpen && (
+        <>
+          {/* Backdrop (mobile dismiss) */}
+          <div
+            onClick={() => setIsDrawerOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 lg:bg-transparent lg:pointer-events-none transition-opacity"
+          />
+
+          {/* Drawer Container */}
+          <aside className="fixed inset-y-0 right-0 w-full sm:w-[460px] z-50 bg-[#181A1F] border-l border-white/[0.08] shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col animate-fade-in-up">
+            {/* Drawer Header */}
+            <div className="p-4 sm:p-5 border-b border-white/[0.08] space-y-2 bg-[#181A1F]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#38BDF8]">
+                    DECISION X-RAY
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/20 text-[10px] font-mono">
+                    Captured from observation
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {selectedDecisionNode?.isNew && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#34D399] text-[#16171B] text-[9px] font-mono font-bold shadow-xs">
+                      ✨ NEW
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setIsDrawerOpen(false)}
+                    className="p-1.5 rounded-lg hover:bg-white/[0.06] text-[#9297A5] hover:text-[#EEEFF2] transition-colors cursor-pointer"
+                    title="Close Decision X-Ray"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-[#EEEFF2] leading-snug">
+                  {xrayData.decision}
+                </h3>
+                <p className="text-xs text-[#9297A5] mt-0.5">
+                  Detailed evidence-backed explanation elicited from <strong>Sarah Chen</strong>
+                </p>
+              </div>
+
+              {/* Source Classification Legend Bar */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-mono">
+                <span className="text-[#646977]">Source Types:</span>
+                <span className="px-1.5 py-0.5 rounded bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30">
+                  EXPLICIT
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30">
+                  INFERRED
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-[#1F2127] text-[#9297A5] border border-white/[0.08]">
+                  UNKNOWN
+                </span>
+              </div>
+            </div>
+
+            {/* Drawer Body (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 text-xs">
+              {/* ──────────────────────────────────────────────────────
+                  PROMINENT VERBATIM GROUNDED EVIDENCE (Lilac Accent #C084FC)
+                  ────────────────────────────────────────────────────── */}
+              {xrayData.evidence !== "Not stated by expert" ? (
+                <div className="p-4 rounded-xl border border-[#C084FC]/40 bg-gradient-to-br from-[#C084FC]/10 via-[#181A1F] to-[#1F2127] shadow-[0_0_25px_rgba(192,132,252,0.12)] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-[#C084FC] uppercase tracking-widest flex items-center gap-1.5 font-mono">
+                      <Quote className="w-3.5 h-3.5 text-[#C084FC]" />
+                      Exact Expert Sentence (Verbatim Evidence)
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-[#34D399]/15 text-[#34D399] text-[9px] font-mono font-bold border border-[#34D399]/30">
+                      EXPLICIT
+                    </span>
+                  </div>
+
+                  <blockquote className="text-sm font-medium text-[#EEEFF2] italic tracking-wide leading-relaxed pl-3 border-l-2 border-[#C084FC]">
+                    &quot;{xrayData.evidence}&quot;
+                  </blockquote>
+
+                  <div className="pt-2 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-1 text-[10px] text-[#9297A5] font-mono">
+                    <span>Speaker: <strong>Sarah Chen</strong></span>
+                    <span className="text-[#C084FC] font-medium">Grounded in verbatim words</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl border border-white/[0.08] bg-[#1F2127] space-y-1 text-[#9297A5]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977]">
+                      Grounded Evidence
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-[#181A1F] text-[#9297A5] text-[9px] font-mono border border-white/[0.08]">
+                      UNKNOWN
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#9297A5] italic">
+                    Not stated by expert in current observation session.
+                  </p>
+                </div>
+              )}
+
+              {/* 1. Decision & Trigger / Condition */}
+              <div className="grid grid-cols-1 gap-2.5">
+                <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#646977] block">
+                    Decision Evaluated
+                  </span>
+                  <p className="text-[#EEEFF2] font-medium leading-relaxed">
+                    {xrayData.decision}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#38BDF8] block">
+                    Trigger / Condition
+                  </span>
+                  <p className="text-[#EEEFF2] leading-relaxed font-mono text-[11px]">
+                    {xrayData.triggerCondition}
+                  </p>
+                </div>
+              </div>
+
+              {/* 2. Why It Matters */}
+              <div className="p-3 rounded-xl bg-[#38BDF8]/5 border border-[#38BDF8]/20 space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#38BDF8] block font-semibold">
+                  Why It Matters
+                </span>
+                <p className="text-[#EEEFF2] leading-relaxed">
+                  {xrayData.whyItMatters}
+                </p>
+              </div>
+
+              {/* 3. Expert Reasoning */}
+              <div className="p-3 rounded-xl bg-[#C084FC]/5 border border-[#C084FC]/20 space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#C084FC] block font-semibold">
+                  Expert Reasoning
+                </span>
+                <p className="text-[#EEEFF2] leading-relaxed italic">
+                  {xrayData.expertReasoning !== "Not stated by expert"
+                    ? `"${xrayData.expertReasoning}"`
+                    : "Not stated by expert"}
+                </p>
+              </div>
+
+              {/* 4. Extracted Rule */}
+              {(() => {
+                const ruleClassification = getFieldClassification(
+                  xrayData.extractedRule,
+                  xrayData.evidence,
+                  selectedDecisionNode?.id,
+                  "rule"
+                );
+
+                return (
+                  <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#34D399] flex items-center gap-1.5">
+                        <Lightbulb className="w-3.5 h-3.5 text-[#34D399]" />
+                        Rule
+                      </span>
+                      <span
+                        title={ruleClassification.description}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${ruleClassification.badgeClass}`}
+                      >
+                        {ruleClassification.label}
+                      </span>
+                    </div>
+                    <p className="text-[#EEEFF2] leading-relaxed font-medium">
+                      {xrayData.extractedRule}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* 5. Exception */}
+              {(() => {
+                const exceptionClassification = getFieldClassification(
+                  xrayData.exception,
+                  xrayData.evidence,
+                  selectedDecisionNode?.id,
+                  "exception"
+                );
+
+                return (
+                  <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#F59E0B] flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-[#F59E0B]" />
+                        Exception
+                      </span>
+                      <span
+                        title={exceptionClassification.description}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${exceptionClassification.badgeClass}`}
+                      >
+                        {exceptionClassification.label}
+                      </span>
+                    </div>
+                    <p className="text-[#EEEFF2] leading-relaxed">
+                      {xrayData.exception}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* 6. Guardrail */}
+              {(() => {
+                const guardrailClassification = getFieldClassification(
+                  xrayData.guardrail,
+                  xrayData.evidence,
+                  selectedDecisionNode?.id,
+                  "guardrail"
+                );
+
+                return (
+                  <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#34D399] flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#34D399]" />
+                        Guardrail
+                      </span>
+                      <span
+                        title={guardrailClassification.description}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${guardrailClassification.badgeClass}`}
+                      >
+                        {guardrailClassification.label}
+                      </span>
+                    </div>
+                    <p className="text-[#EEEFF2] leading-relaxed">
+                      {xrayData.guardrail}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* 7. Confidence Progress & Timestamp & Source */}
+              <div className="p-3 rounded-xl bg-[#1F2127] border border-white/[0.08] space-y-2">
+                <div className="flex items-center justify-between text-[#EEEFF2]">
+                  <span className="font-semibold text-[11px] font-mono">Knowledge Confidence</span>
+                  <span className="font-mono text-[#34D399] font-bold">
+                    {xrayData.confidence}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-[#181A1F] overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#38BDF8] to-[#34D399] rounded-full"
+                    style={{ width: `${xrayData.confidence}%` }}
+                  />
+                </div>
+                <div className="pt-1 flex items-center justify-between text-[10px] text-[#646977] font-mono">
+                  <span>Captured: {xrayData.timestamp}</span>
+                  <span className="text-[#9297A5]">Observation Verified</span>
+                </div>
+              </div>
+
+              {/* Source attribution */}
+              <div className="p-2.5 rounded-xl bg-[#181A1F] border border-white/[0.06] text-[11px] text-[#9297A5]">
+                <span className="text-[#646977] block text-[10px] uppercase font-semibold font-mono">
+                  Source:
+                </span>
+                <span className="text-[#EEEFF2] font-medium">
+                  {xrayData.source}
+                </span>
+              </div>
+            </div>
+
+            {/* Drawer Footer CTA */}
+            <div className="p-4 border-t border-white/[0.08] bg-[#181A1F]">
+              <Link href="/train">
+                <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#F5EFE6] text-[#16171B] hover:bg-white text-xs font-semibold shadow-md transition-all">
+                  <Mic className="w-4 h-4 text-[#16171B]" />
+                  <span>Practice This Decision in Voice Drill</span>
+                </button>
+              </Link>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Floating Re-Open Button when drawer is closed */}
+      {!isDrawerOpen && (
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#181A1F] border border-[#38BDF8]/40 text-[#EEEFF2] shadow-2xl hover:bg-[#292B34] transition-all cursor-pointer font-medium text-xs backdrop-blur-md"
+        >
+          <Eye className="w-4 h-4 text-[#38BDF8]" />
+          <span>Decision X-Ray: {selectedDecisionNode?.title || "Inspect"}</span>
+        </button>
       )}
     </div>
   );
