@@ -829,7 +829,7 @@ export default function TrainPage() {
                 {/* Primary Ivory Submit Button */}
                 <div className="pt-2 flex items-center justify-between gap-3">
                   <span className="text-[10px] font-mono text-[#646977]">
-                    Claude 3.5 Sonnet Grounded Evaluator
+                    Claude Sonnet 5.5 Grounded Evaluator
                   </span>
 
                   <button
